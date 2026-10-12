@@ -262,3 +262,41 @@ export interface CareerRoadmapGoal {
     estimatedWeeks: number;
   }[];
 }
+
+export interface SSIWeights {
+  academicsWeight: number;
+  attendanceWeight: number;
+  placementWeight: number;
+  skillsWeight: number;
+}
+
+export interface SSIFactor {
+  id: string;
+  name: string;
+  weight: number;
+  score: number | null;
+  weightedScore: number | null;
+  status: 'SUFFICIENT' | 'INSUFFICIENT_DATA' | 'NOT_YET_ASSESSED';
+  explanation: string;
+  evidenceSummary: string;
+  recommendedAction: string;
+  linkModule: string;
+}
+
+export interface StudentSuccessIndex {
+  studentId: string;
+  studentName: string;
+  overallScore: number | null;
+  partialScore: number | null;
+  dataCompleteness: 'COMPLETE' | 'PARTIAL' | 'INSUFFICIENT';
+  totalFactorsEvaluated: number;
+  factorsWithValidData: number;
+  weights: SSIWeights;
+  factors: SSIFactor[];
+  strongestFactor?: string;
+  improvementFactor?: string;
+  recommendations: string[];
+  calculatedAt: string;
+  calculationMethod: string;
+}
+

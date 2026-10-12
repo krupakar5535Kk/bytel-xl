@@ -1,6 +1,7 @@
-import { Student, Assessment, AttendanceRecord, AssignmentRecord, Intervention, AIRecommendation, RiskAssessment, DashboardSummary } from '../types';
+import { Student, Assessment, AttendanceRecord, AssignmentRecord, Intervention, AIRecommendation, RiskAssessment, DashboardSummary, StudentSuccessIndex, SSIWeights } from '../types';
 import { DEMO_STUDENTS, DEMO_ASSESSMENTS, DEMO_ASSIGNMENTS, DEMO_INTERVENTIONS, DEMO_AI_RECOMMENDATIONS } from '../data/demoData';
 import { calculateStudentRisk } from '../utils/riskEngine';
+import { calculateClientSSI } from '../utils/ssiEngine';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
 
@@ -689,4 +690,60 @@ Ask me anything about your studies, exam preparation, or technical subjects:
       groundPlan,
     };
   },
+
+  // Student Success Index (SSI) API
+  async getStudentSSI(
+    studentId: string,
+    isLiveMode: boolean,
+    weights?: SSIWeights,
+    studentFallback?: Student,
+    assessmentsFallback?: Assessment[]
+  ): Promise<StudentSuccessIndex> {
+    if (isLiveMode) {
+      try {
+        let url = `${API_BASE_URL}/students/${encodeURIComponent(studentId)}/ssi`;
+        if (weights) {
+          const params = new URLSearchParams({
+            academicsWeight: weights.academicsWeight.toString(),
+            attendanceWeight: weights.attendanceWeight.toString(),
+            placementWeight: weights.placementWeight.toString(),
+            skillsWeight: weights.skillsWeight.toString(),
+          });
+          url += `?${params.toString()}`;
+        }
+        const res = await fetch(url);
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.warn('[wildfireApi] Backend SSI endpoint unreachable, using client engine fallback:', err);
+      }
+    }
+
+    const student = studentFallback || localDemoStudents.find((s) => s.id === studentId);
+    if (!student) {
+      throw new ApiError(`Student record not found for ID: ${studentId}`, 404);
+    }
+    const assessments = assessmentsFallback || localDemoAssessments.filter((a) => a.studentId === studentId);
+    return calculateClientSSI(student, assessments, null, null, weights);
+  },
+
+  async getAllStudentsSSI(isLiveMode: boolean): Promise<StudentSuccessIndex[]> {
+    if (isLiveMode) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/ssi`);
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.warn('[wildfireApi] Live /api/v1/ssi unreachable, using demo calculation fallback:', err);
+      }
+    }
+
+    return localDemoStudents.map((s) => {
+      const studentAssessments = localDemoAssessments.filter((a) => a.studentId === s.id);
+      return calculateClientSSI(s, studentAssessments);
+    });
+  },
 };
+

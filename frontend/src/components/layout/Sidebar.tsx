@@ -14,9 +14,10 @@ import {
   ChevronLeft, 
   ChevronRight,
   LogOut,
-  Compass,
+  Compass, 
   CreditCard,
-  Award
+  Award,
+  Target
 } from 'lucide-react';
 import { WildfireLogo } from './WildfireLogo';
 import { useApp } from '../../context/AppContext';
@@ -29,6 +30,7 @@ export type NavTab =
   | 'talent'
   | 'fees'
   | 'studentPortal'
+  | 'ssi'
   | 'academic'
   | 'attendance'
   | 'risk'
@@ -72,6 +74,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { id: 'fees' as NavTab, label: 'Fee Management', icon: CreditCard },
     { id: 'studentPortal' as NavTab, label: 'Student Success Center', icon: Award },
+    { 
+      id: 'ssi' as NavTab, 
+      label: 'Student Success Index', 
+      icon: Target,
+      badge: 'SSI',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
+    },
     { id: 'academic' as NavTab, label: 'Academic Analytics', icon: GraduationCap },
     { id: 'attendance' as NavTab, label: 'Attendance Analytics', icon: CalendarCheck },
     { 

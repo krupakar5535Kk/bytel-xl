@@ -18,6 +18,7 @@ import { SettingsView } from './components/settings/SettingsView';
 import { TalentRadarView } from './components/talent/TalentRadarView';
 import { FeeManagementView } from './components/fees/FeeManagementView';
 import { StudentSuccessDashboard } from './components/student-portal/StudentSuccessDashboard';
+import { StudentSuccessIndexView } from './components/ssi/StudentSuccessIndexView';
 import { CinematicIntro } from './components/common/CinematicIntro';
 import { Student, AIRecommendation } from './types';
 import { GlassCard } from './components/common/GlassCard';
@@ -141,6 +142,18 @@ export const App: React.FC = () => {
         <StudentSuccessDashboard
           onNavigateToTalent={() => setCurrentTab('talent')}
           onNavigateToFees={() => setCurrentTab('fees')}
+        />
+      )}
+
+      {currentTab === 'ssi' && (
+        <StudentSuccessIndexView
+          selectedStudent={selectedStudent}
+          onSelectStudent={handleSelectStudent}
+          onNavigateTab={(tab) => setCurrentTab(tab as any)}
+          onNavigateToAITutor={(student) => {
+            setSelectedStudent(student);
+            setCurrentTab('ai');
+          }}
         />
       )}
 
