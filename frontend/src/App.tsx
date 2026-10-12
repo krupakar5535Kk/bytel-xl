@@ -19,7 +19,7 @@ import { TalentRadarView } from './components/talent/TalentRadarView';
 import { FeeManagementView } from './components/fees/FeeManagementView';
 import { StudentSuccessDashboard } from './components/student-portal/StudentSuccessDashboard';
 import { StudentSuccessIndexView } from './components/ssi/StudentSuccessIndexView';
-import { CinematicIntro } from './components/common/CinematicIntro';
+import { VideoTourModal } from './components/common/VideoTourModal';
 import { Student, AIRecommendation } from './types';
 import { GlassCard } from './components/common/GlassCard';
 import { Flame, User } from 'lucide-react';
@@ -37,23 +37,27 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Check if 3-second cinematic intro was already seen this session
-  const [showIntro, setShowIntro] = useState<boolean>(() => {
+  // Check if 20-second video tutorial tour was already seen or dismissed
+  const [showVideoTour, setShowVideoTour] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
-      return !sessionStorage.getItem('student_analytics_intro_seen');
+      return !localStorage.getItem('student_analytics_tour_seen');
     } catch {
       return false;
     }
   });
 
-  const handleIntroComplete = () => {
+  const handleCloseVideoTour = () => {
     try {
-      sessionStorage.setItem('student_analytics_intro_seen', 'true');
+      localStorage.setItem('student_analytics_tour_seen', 'true');
     } catch {
-      // Ignore storage errors in restricted contexts
+      // ignore
     }
-    setShowIntro(false);
+    setShowVideoTour(false);
+  };
+
+  const handleOpenVideoTour = () => {
+    setShowVideoTour(true);
   };
 
   const handleSelectStudent = (student: Student) => {
@@ -62,12 +66,7 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 1. First-visit 3-second Cinematic AI intro animation
-  if (showIntro) {
-    return <CinematicIntro onComplete={handleIntroComplete} />;
-  }
-
-  // 2. Initial auth recovery loading state
+  // 1. Initial auth recovery loading state
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen w-full bg-[#050814] flex flex-col items-center justify-center text-slate-200">
@@ -83,9 +82,17 @@ export const App: React.FC = () => {
     );
   }
 
-  // 3. Unauthenticated: Render Login / Register page
+  // 2. Unauthenticated: Render Login / Register page with VideoTourModal
   if (!user) {
-    return <AuthPage />;
+    return (
+      <>
+        <AuthPage onOpenVideoTour={handleOpenVideoTour} />
+        <VideoTourModal
+          isOpen={showVideoTour}
+          onClose={handleCloseVideoTour}
+        />
+      </>
+    );
   }
 
   // Fallback student if user navigates directly to profile tab without selecting one
@@ -93,8 +100,13 @@ export const App: React.FC = () => {
 
   // 3. Authenticated: Render dashboard application shell
   return (
-    <AppLayout currentTab={currentTab} onSelectTab={setCurrentTab}>
-      {currentTab === 'dashboard' && (
+    <>
+      <AppLayout
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
+        onOpenVideoTour={handleOpenVideoTour}
+      >
+        {currentTab === 'dashboard' && (
         <DashboardOverview
           onSelectStudent={handleSelectStudent}
           onNavigateToRisk={() => setCurrentTab('risk')}
@@ -187,5 +199,10 @@ export const App: React.FC = () => {
 
       {currentTab === 'settings' && <SettingsView />}
     </AppLayout>
+    <VideoTourModal
+      isOpen={showVideoTour}
+      onClose={handleCloseVideoTour}
+    />
+  </>
   );
 };

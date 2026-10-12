@@ -7,12 +7,14 @@ import { ToastContainer } from '../common/ToastContainer';
 interface AppLayoutProps {
   currentTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
+  onOpenVideoTour?: () => void;
   children: ReactNode;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
   currentTab,
   onSelectTab,
+  onOpenVideoTour,
   children,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
@@ -34,6 +36,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       <TopNavigation
         collapsed={collapsed}
         onOpenSettings={() => onSelectTab('settings')}
+        onOpenVideoTour={onOpenVideoTour}
       />
 
       {/* Main Content Area */}

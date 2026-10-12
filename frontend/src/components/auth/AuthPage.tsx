@@ -11,11 +11,16 @@ import {
   ShieldCheck, 
   AlertCircle, 
   CheckCircle2, 
-  Database
+  Database,
+  Play
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export const AuthPage: React.FC = () => {
+interface AuthPageProps {
+  onOpenVideoTour?: () => void;
+}
+
+export const AuthPage: React.FC<AuthPageProps> = ({ onOpenVideoTour }) => {
   const { login, signUp } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -110,6 +115,17 @@ export const AuthPage: React.FC = () => {
           <p className="text-xs text-slate-400 mt-1.5 font-medium">
             Academic Success & Talent Intelligence Platform
           </p>
+
+          {onOpenVideoTour && (
+            <button
+              type="button"
+              onClick={onOpenVideoTour}
+              className="mt-3.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-semibold transition-all shadow-[0_0_15px_rgba(0,229,255,0.2)] hover:scale-105 cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-cyan-400 text-cyan-400" />
+              <span>Watch 20s App Tour Video</span>
+            </button>
+          )}
         </div>
 
         {/* Auth Glass Card */}

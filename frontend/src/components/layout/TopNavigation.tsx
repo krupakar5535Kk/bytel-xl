@@ -9,7 +9,8 @@ import {
   Filter, 
   Calendar,
   User,
-  LogOut
+  LogOut,
+  Play
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -17,9 +18,10 @@ import { useAuth } from '../../context/AuthContext';
 interface TopNavigationProps {
   collapsed: boolean;
   onOpenSettings?: () => void;
+  onOpenVideoTour?: () => void;
 }
 
-export const TopNavigation: React.FC<TopNavigationProps> = ({ collapsed }) => {
+export const TopNavigation: React.FC<TopNavigationProps> = ({ collapsed, onOpenSettings, onOpenVideoTour }) => {
   const {
     isLiveMode,
     backendStatus,
@@ -110,7 +112,19 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({ collapsed }) => {
       </div>
 
       {/* Right Controls: Mode Toggle, Refresh, Notifications, Profile */}
-      <div className="flex items-center gap-3.5">
+      <div className="flex items-center gap-3">
+        {/* 20-Second Quick Tour Button */}
+        {onOpenVideoTour && (
+          <button
+            onClick={onOpenVideoTour}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 hover:text-white border border-cyan-500/40 text-xs font-mono font-bold transition-all shadow-[0_0_12px_rgba(0,229,255,0.2)] cursor-pointer"
+            title="Watch 20-second app tutorial tour"
+          >
+            <Play className="w-3.5 h-3.5 fill-cyan-400 text-cyan-400" />
+            <span className="hidden sm:inline">20s Tour</span>
+          </button>
+        )}
+
         {/* Database Connection Status Switch */}
         <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/60 rounded-xl px-3 py-1.5 shadow-inner">
           <span className="text-[11px] font-mono text-slate-400 font-medium">SOURCE:</span>
