@@ -317,19 +317,38 @@ export const StudentPortfolioEditor: React.FC<StudentPortfolioEditorProps> = ({ 
       const newProj: StudentProject = {
         id: `proj-${Date.now()}`,
         title: projectForm.title.trim(),
+        summary: projectForm.description.trim().slice(0, 120),
         description: projectForm.description.trim(),
         technologies: techs.length > 0 ? techs : ['Software'],
         githubUrl: projectForm.githubUrl.trim() || undefined,
         liveUrl: projectForm.liveUrl.trim() || undefined,
         completionDate: projectForm.completionDate,
+        status: 'completed',
+        visibility: 'college_visible',
+        ownerStudentId: profile.studentId,
+        ownerName: profile.studentName,
+        likes: 0,
+        likedBy: [],
         verified: false,
         featured: projectForm.featured,
+        createdAt: new Date().toISOString().split('T')[0],
       };
       setProfile((prev) => ({
         ...prev,
         projects: [newProj, ...prev.projects],
       }));
-      showToast('success', 'Project Added', `Added "${newProj.title}" to your developer portfolio.`);
+
+      // Sync to shared campus discovery feed
+      try {
+        const sharedKey = 'student_analytics_published_projects';
+        const existingStr = localStorage.getItem(sharedKey);
+        const existing: StudentProject[] = existingStr ? JSON.parse(existingStr) : [];
+        localStorage.setItem(sharedKey, JSON.stringify([newProj, ...existing]));
+      } catch (err) {
+        console.warn('Failed to sync to shared projects:', err);
+      }
+
+      showToast('success', 'Project Published', `Added "${newProj.title}" and published to campus project discovery.`);
     }
     setIsProjectModalOpen(false);
   };
@@ -340,6 +359,18 @@ export const StudentPortfolioEditor: React.FC<StudentPortfolioEditorProps> = ({ 
       ...prev,
       projects: prev.projects.filter((p) => p.id !== projId),
     }));
+
+    try {
+      const sharedKey = 'student_analytics_published_projects';
+      const existingStr = localStorage.getItem(sharedKey);
+      if (existingStr) {
+        const existing: StudentProject[] = JSON.parse(existingStr);
+        localStorage.setItem(sharedKey, JSON.stringify(existing.filter((p) => p.id !== projId)));
+      }
+    } catch {
+      // ignore
+    }
+
     showToast('info', 'Project Removed', 'The repository project was removed from your portfolio.');
   };
 

@@ -213,6 +213,8 @@ export interface StudentProject {
   ownerName?: string;
   verified?: boolean;
   featured?: boolean;
+  likes?: number;
+  likedBy?: string[];
   createdAt?: string;
   updatedAt?: string;
 }

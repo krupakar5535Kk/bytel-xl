@@ -38,7 +38,8 @@ import {
   Edit3,
   Calendar,
   Share2,
-  FolderGit2
+  FolderGit2,
+  Heart
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { StudentPortfolioEditor } from './StudentPortfolioEditor';
@@ -62,6 +63,8 @@ const INITIAL_SHARED_PROJECTS: StudentProject[] = [
     ownerStudentId: 'STU-001',
     ownerName: 'Alex Rivera',
     verified: true,
+    likes: 38,
+    likedBy: ['STU-002', 'STU-003'],
     createdAt: '2026-10-01',
   },
   {
@@ -78,6 +81,8 @@ const INITIAL_SHARED_PROJECTS: StudentProject[] = [
     ownerStudentId: 'STU-002',
     ownerName: 'Priya Sharma',
     verified: true,
+    likes: 27,
+    likedBy: ['STU-001'],
     createdAt: '2026-10-05',
   },
   {
@@ -93,6 +98,8 @@ const INITIAL_SHARED_PROJECTS: StudentProject[] = [
     ownerStudentId: 'STU-003',
     ownerName: 'Rahul Verma',
     verified: false,
+    likes: 19,
+    likedBy: ['STU-004'],
     createdAt: '2026-10-10',
   },
   {
@@ -110,6 +117,8 @@ const INITIAL_SHARED_PROJECTS: StudentProject[] = [
     ownerStudentId: 'STU-004',
     ownerName: 'Ananya Deshmukh',
     verified: true,
+    likes: 42,
+    likedBy: ['STU-001', 'STU-002', 'STU-003'],
     createdAt: '2026-09-28',
   },
 ];
@@ -133,7 +142,14 @@ export const TalentRadarView: React.FC = () => {
     try {
       const saved = localStorage.getItem(SHARED_PROJECTS_STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed: StudentProject[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((p, idx) => ({
+            ...p,
+            likes: typeof p.likes === 'number' ? p.likes : (20 + (idx % 5) * 6),
+            likedBy: Array.isArray(p.likedBy) ? p.likedBy : [],
+          }));
+        }
       }
     } catch {
       // ignore
@@ -312,6 +328,8 @@ export const TalentRadarView: React.FC = () => {
       ownerStudentId: currentUserId,
       ownerName: currentUserName,
       verified: projectForm.status === 'completed' && Boolean(projectForm.githubUrl.trim()),
+      likes: 0,
+      likedBy: [],
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -349,6 +367,75 @@ export const TalentRadarView: React.FC = () => {
       }
       showToast('info', 'Project Unpublished', `"${projectTitle}" has been removed from public discovery.`);
     }
+  };
+
+  // Handle Project Likes & Hearts (Any student can like any project/idea)
+  const handleToggleLike = (projectOrId: string | StudentProject, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const projectId = typeof projectOrId === 'string' ? projectOrId : projectOrId.id;
+
+    setPublishedProjects((prev) => {
+      const exists = prev.some((p) => p.id === projectId);
+      let updatedList = [...prev];
+
+      if (!exists && typeof projectOrId !== 'string') {
+        updatedList = [projectOrId, ...updatedList];
+      }
+
+      return updatedList.map((proj) => {
+        if (proj.id === projectId) {
+          const likedBy = proj.likedBy || [];
+          const isLiked = likedBy.includes(currentUserId);
+          const newLikedBy = isLiked
+            ? likedBy.filter((id) => id !== currentUserId)
+            : [...likedBy, currentUserId];
+          const newLikes = Math.max(0, (proj.likes ?? 0) + (isLiked ? -1 : 1));
+
+          if (!isLiked) {
+            showToast('success', 'Project Liked! ❤️', `You gave a like to "${proj.title}"!`);
+          } else {
+            showToast('info', 'Like Removed', `Removed your like from "${proj.title}".`);
+          }
+
+          const updated = {
+            ...proj,
+            likes: newLikes,
+            likedBy: newLikedBy,
+          };
+
+          if (selectedProjectForDetail?.id === projectId) {
+            setSelectedProjectForDetail(updated);
+          }
+
+          return updated;
+        }
+        return proj;
+      });
+    });
+  };
+
+  // Helper to get all projects for a selected student profile with live likes & status
+  const getStudentProjects = (profile: TalentProfile): StudentProject[] => {
+    const publishedForStudent = publishedProjects.filter(
+      (p) =>
+        p.ownerStudentId === profile.studentId ||
+        (p.ownerName && p.ownerName.toLowerCase() === profile.studentName.toLowerCase())
+    );
+    if (publishedForStudent.length > 0) {
+      return publishedForStudent;
+    }
+    // Fallback: adapt profile.projects into StudentProject with likes
+    return profile.projects.map((p, pIdx) => ({
+      ...p,
+      id: p.id || `proj-${profile.studentId}-${pIdx}`,
+      ownerStudentId: profile.studentId,
+      ownerName: profile.studentName,
+      likes: typeof p.likes === 'number' ? p.likes : (12 + pIdx * 9),
+      likedBy: Array.isArray(p.likedBy) ? p.likedBy : [],
+      status: p.status || 'completed',
+      visibility: p.visibility || 'college_visible',
+      createdAt: p.completionDate || '2026-09-15',
+    }));
   };
 
   // Filtered Projects for Discovery Feed
@@ -411,15 +498,19 @@ export const TalentRadarView: React.FC = () => {
       const matchesCourse = profile.course.toLowerCase().includes(q);
       const matchesBio = (profile.bio || '').toLowerCase().includes(q);
       const matchesSkills = profile.primarySkills.some((s) => s.name.toLowerCase().includes(q));
-      const matchesProjects = profile.projects.some(
+      
+      const allStudentProjects = getStudentProjects(profile);
+      const matchesProjects = allStudentProjects.some(
         (p) =>
           p.title.toLowerCase().includes(q) ||
+          (p.summary || '').toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
           p.technologies.some((t) => t.toLowerCase().includes(q))
       );
 
       return matchesName || matchesId || matchesCourse || matchesBio || matchesSkills || matchesProjects;
     });
-  }, [talentProfiles, search, yearFilter, skillFilter]);
+  }, [talentProfiles, publishedProjects, search, yearFilter, skillFilter]);
 
   return (
     <div className="space-y-6 animate-fadeIn pb-16">
@@ -466,13 +557,48 @@ export const TalentRadarView: React.FC = () => {
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
               title="Clear search"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
+
+        {/* Real-time Search Match Indicator */}
+        {search.trim() && (
+          <div className="mt-3 p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 text-xs animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+              <span className="text-slate-200">
+                Found <strong className="text-cyan-300 font-mono">{filteredStudents.length}</strong> student{filteredStudents.length !== 1 ? 's' : ''} and{' '}
+                <strong className="text-cyan-300 font-mono">{filteredProjects.length}</strong> project{filteredProjects.length !== 1 ? 's' : ''} matching "{search}"
+              </span>
+            </div>
+            <div className="flex items-center gap-2 font-mono">
+              <button
+                onClick={() => setActiveTab('discover_students')}
+                className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                  activeTab === 'discover_students'
+                    ? 'bg-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(0,229,255,0.4)]'
+                    : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
+                }`}
+              >
+                View Students ({filteredStudents.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('discover_projects')}
+                className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                  activeTab === 'discover_projects'
+                    ? 'bg-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(0,229,255,0.4)]'
+                    : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
+                }`}
+              >
+                View Projects ({filteredProjects.length})
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. Primary Navigation Tabs: Discover Projects vs Discover Students vs My Portfolio */}
@@ -698,19 +824,39 @@ export const TalentRadarView: React.FC = () => {
                     </div>
 
                     {/* Bottom Metadata & Owner */}
-                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs gap-2">
                       {/* Owner Info */}
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-[10px] font-mono font-bold text-cyan-300">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-[10px] font-mono font-bold text-cyan-300 flex-shrink-0">
                           {(project.ownerName || 'Student').slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="text-xs text-slate-300 font-medium">
+                        <span className="text-xs text-slate-300 font-medium truncate">
                           {project.ownerName || 'Verified Student'}
                         </span>
                       </div>
 
-                      {/* External Links */}
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      {/* Actions: Likes & External Links */}
+                      <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* Interactive Like Button for this project */}
+                        <button
+                          onClick={(e) => handleToggleLike(project, e)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                            (project.likedBy || []).includes(currentUserId)
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                              : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40'
+                          }`}
+                          title={(project.likedBy || []).includes(currentUserId) ? 'Unlike this project' : 'Like this project'}
+                        >
+                          <Heart
+                            className={`w-3.5 h-3.5 transition-transform ${
+                              (project.likedBy || []).includes(currentUserId)
+                                ? 'fill-rose-400 text-rose-400 scale-110'
+                                : 'text-slate-400 group-hover:text-rose-400'
+                            }`}
+                          />
+                          <span>{project.likes ?? 0}</span>
+                        </button>
+
                         {project.githubUrl && (
                           <a
                             href={project.githubUrl}
@@ -847,9 +993,15 @@ export const TalentRadarView: React.FC = () => {
                         </div>
                       </div>
 
-                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                        {profile.projects.length} Project{profile.projects.length !== 1 ? 's' : ''}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                          {getStudentProjects(profile).length} Project{getStudentProjects(profile).length !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-[10px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Heart className="w-2.5 h-2.5 fill-rose-400" />
+                          <span>{getStudentProjects(profile).reduce((acc, p) => acc + (p.likes || 0), 0)}</span>
+                        </span>
+                      </div>
                     </div>
 
                     <p className="text-xs text-slate-300 line-clamp-2 italic">
@@ -1190,8 +1342,30 @@ export const TalentRadarView: React.FC = () => {
               </div>
             )}
 
-            {/* External Links */}
+            {/* External Links & Like Action */}
             <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-800">
+              {/* Prominent Like / Heart Button */}
+              <button
+                onClick={() => handleToggleLike(selectedProjectForDetail)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                  (selectedProjectForDetail.likedBy || []).includes(currentUserId)
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
+                    : 'bg-slate-900 border border-slate-800 text-slate-300 hover:text-rose-400 hover:border-rose-500/40'
+                }`}
+              >
+                <Heart
+                  className={`w-4 h-4 transition-transform ${
+                    (selectedProjectForDetail.likedBy || []).includes(currentUserId)
+                      ? 'fill-rose-400 text-rose-400 scale-110'
+                      : 'text-slate-400'
+                  }`}
+                />
+                <span>
+                  {(selectedProjectForDetail.likedBy || []).includes(currentUserId) ? 'Liked' : 'Like'} (
+                  {selectedProjectForDetail.likes ?? 0})
+                </span>
+              </button>
+
               {selectedProjectForDetail.githubUrl && (
                 <a
                   href={selectedProjectForDetail.githubUrl}
@@ -1298,33 +1472,94 @@ export const TalentRadarView: React.FC = () => {
               </div>
             )}
 
-            {/* Projects List */}
+            {/* Projects List with Interactive Likes */}
             <div>
-              <h4 className="text-slate-300 font-bold mb-2 uppercase font-mono text-[11px] tracking-wider">
-                Published Projects ({selectedStudentForProfile.projects.length})
-              </h4>
-              <div className="space-y-2">
-                {selectedStudentForProfile.projects.map((proj, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between"
-                  >
-                    <div>
-                      <h5 className="font-bold text-white text-xs">{proj.title}</h5>
-                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{proj.description}</p>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-slate-300 font-bold uppercase font-mono text-[11px] tracking-wider">
+                  Published Projects & Ideas ({getStudentProjects(selectedStudentForProfile).length})
+                </h4>
+                <span className="text-[11px] font-mono text-cyan-400">
+                  Total Likes: {getStudentProjects(selectedStudentForProfile).reduce((acc, p) => acc + (p.likes || 0), 0)} ❤️
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {getStudentProjects(selectedStudentForProfile).map((proj) => {
+                  const isLiked = (proj.likedBy || []).includes(currentUserId);
+                  return (
+                    <div
+                      key={proj.id || proj.title}
+                      className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h5 className="font-bold text-white text-xs">{proj.title}</h5>
+                          {proj.status === 'idea' ? (
+                            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-mono">
+                              Idea
+                            </span>
+                          ) : proj.status === 'in_progress' ? (
+                            <span className="px-1.5 py-0.2 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[10px] font-mono">
+                              In Progress
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono">
+                              Completed
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 line-clamp-1">{proj.summary || proj.description}</p>
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {proj.technologies.slice(0, 3).map((t, tidx) => (
+                            <span key={tidx} className="px-1.5 py-0.5 rounded bg-slate-900 text-cyan-300 text-[10px] font-mono">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                        {/* Interactive Like Button for this student's project */}
+                        <button
+                          onClick={() => handleToggleLike(proj)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                            isLiked
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                              : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40'
+                          }`}
+                          title={isLiked ? 'Unlike this project' : 'Like this project'}
+                        >
+                          <Heart
+                            className={`w-3.5 h-3.5 ${
+                              isLiked ? 'fill-rose-400 text-rose-400 scale-110' : 'text-slate-400'
+                            }`}
+                          />
+                          <span>{proj.likes ?? 0}</span>
+                        </button>
+
+                        {proj.githubUrl && (
+                          <a
+                            href={proj.githubUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+                            title="View GitHub Repository"
+                          >
+                            <Github className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+
+                        <button
+                          onClick={() => setSelectedProjectForDetail(proj)}
+                          className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-cyan-400 hover:text-cyan-300 transition-colors text-xs cursor-pointer"
+                          title="View project details"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    {proj.githubUrl && (
-                      <a
-                        href={proj.githubUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white ml-2 flex-shrink-0"
-                      >
-                        <Github className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
