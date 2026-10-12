@@ -191,17 +191,32 @@ export interface StudentSkill {
   evidenceUrl?: string;
 }
 
+export type ProjectStatus = 'idea' | 'in_progress' | 'completed';
+export type ProjectVisibility = 'college_visible' | 'private';
+
 export interface StudentProject {
   id?: string;
   title: string;
+  summary?: string;
   description: string;
+  category?: string;
   technologies: string[];
+  skillsDemonstrated?: string[];
   githubUrl?: string;
   liveUrl?: string;
+  coverImageUrl?: string;
+  teamMembers?: string[];
   completionDate?: string;
-  verified: boolean;
+  status?: ProjectStatus;
+  visibility?: ProjectVisibility;
+  ownerStudentId?: string;
+  ownerName?: string;
+  verified?: boolean;
   featured?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
 
 export interface TalentProfile {
   studentId: string;

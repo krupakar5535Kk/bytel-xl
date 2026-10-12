@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GlassCard } from '../common/GlassCard';
 import { useApp } from '../../context/AppContext';
-import { TalentProfile, SkillCategory, CareerRoadmapGoal } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { 
+  TalentProfile, 
+  SkillCategory, 
+  CareerRoadmapGoal, 
+  StudentProject,
+  ProjectStatus,
+  ProjectVisibility
+} from '../../types';
 import { 
   Compass, 
   Search, 
@@ -16,32 +24,154 @@ import {
   Briefcase, 
   TrendingUp,
   ShieldCheck,
-  Eye,
-  EyeOff,
-  UserCheck,
-  Plus,
-  User
+  Eye, 
+  EyeOff, 
+  UserCheck, 
+  Plus, 
+  User,
+  Lightbulb,
+  Check,
+  X,
+  Globe,
+  Lock,
+  Trash2,
+  Edit3,
+  Calendar,
+  Share2,
+  FolderGit2
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { StudentPortfolioEditor } from './StudentPortfolioEditor';
 
+const SHARED_PROJECTS_STORAGE_KEY = 'student_analytics_published_projects';
+
+// Initial cohort projects
+const INITIAL_SHARED_PROJECTS: StudentProject[] = [
+  {
+    id: 'proj-01',
+    title: 'Autonomous Multi-Agent AI Research Assistant',
+    summary: 'Autonomous LLM agent system that synthesizes multi-source research papers into structured LaTeX literature reviews.',
+    description: 'An end-to-end framework integrating vector embeddings, semantic retrieval, and self-correcting prompt loops. Developed for academic researchers dealing with large corpus literature surveys.',
+    category: 'ai_ml',
+    technologies: ['Python', 'FastAPI', 'PyTorch', 'LangChain', 'PostgreSQL (pgvector)'],
+    skillsDemonstrated: ['Agentic Workflows', 'Vector Databases', 'Prompt Engineering', 'Async Python'],
+    githubUrl: 'https://github.com/example/research-agent',
+    liveUrl: 'https://ai-research-agent.demo.app',
+    status: 'completed',
+    visibility: 'college_visible',
+    ownerStudentId: 'STU-001',
+    ownerName: 'Alex Rivera',
+    verified: true,
+    createdAt: '2026-10-01',
+  },
+  {
+    id: 'proj-02',
+    title: 'Distributed Campus Micro-Grid Energy Optimizer',
+    summary: 'IoT edge controller predicting energy consumption and load-shedding schedules for university labs.',
+    description: 'Hardware prototype reading telemetry sensors across 12 campus buildings. Uses time-series forecasting (LSTM) to optimize solar battery storage discharging during peak grid tariffs.',
+    category: 'iot',
+    technologies: ['C++', 'Rust', 'TensorFlow Lite', 'MQTT', 'Docker'],
+    skillsDemonstrated: ['Edge Computing', 'Embedded Systems', 'Time-Series Forecasting', 'C++ Performance'],
+    githubUrl: 'https://github.com/example/microgrid-optimizer',
+    status: 'in_progress',
+    visibility: 'college_visible',
+    ownerStudentId: 'STU-002',
+    ownerName: 'Priya Sharma',
+    verified: true,
+    createdAt: '2026-10-05',
+  },
+  {
+    id: 'proj-03',
+    title: 'Zero-Knowledge Credential Verification for Student Diplomas',
+    summary: 'Early-stage cryptographic idea for tamper-proof student degrees and instant employer verification.',
+    description: 'Investigating Circom and snarkjs to generate zero-knowledge proofs for university degrees. Employers can verify degree authenticity without accessing confidential student grade sheets or personal details.',
+    category: 'cybersecurity',
+    technologies: ['Circom', 'Solidity', 'TypeScript', 'Cryptography'],
+    skillsDemonstrated: ['Zero-Knowledge Proofs', 'Smart Contract Auditing', 'Privacy Engineering'],
+    status: 'idea',
+    visibility: 'college_visible',
+    ownerStudentId: 'STU-003',
+    ownerName: 'Rahul Verma',
+    verified: false,
+    createdAt: '2026-10-10',
+  },
+  {
+    id: 'proj-04',
+    title: 'High-Throughput Financial Stream Analytics Engine',
+    summary: 'Low-latency financial order matching and risk analysis engine handling 50,000 events/second.',
+    description: 'Built with Java 21 virtual threads, Spring Boot, and Aeron messaging for microsecond-level financial order processing and anomaly detection.',
+    category: 'systems',
+    technologies: ['Java 21', 'Spring Boot', 'Kafka', 'PostgreSQL', 'Docker'],
+    skillsDemonstrated: ['High-Concurrency Systems', 'JVM Optimization', 'Stream Processing'],
+    githubUrl: 'https://github.com/example/stream-analytics',
+    liveUrl: 'https://stream-analytics.demo.app',
+    status: 'completed',
+    visibility: 'college_visible',
+    ownerStudentId: 'STU-004',
+    ownerName: 'Ananya Deshmukh',
+    verified: true,
+    createdAt: '2026-09-28',
+  },
+];
+
 export const TalentRadarView: React.FC = () => {
   const { students, showToast } = useApp();
-  const [viewMode, setViewMode] = useState<'my_portfolio' | 'campus_radar'>('my_portfolio');
+  const { user, userProfile } = useAuth();
 
-  const handleMyProfileUpdate = (updatedProfile: TalentProfile) => {
-    setTalentProfiles((prev) => {
-      const idx = prev.findIndex((p) => p.studentId === updatedProfile.studentId);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = updatedProfile;
-        return next;
+  // Active Tab: 'discover_projects' | 'discover_students' | 'my_portfolio'
+  const [activeTab, setActiveTab] = useState<'discover_projects' | 'discover_students' | 'my_portfolio'>('discover_projects');
+
+  // Search & Filter state
+  const [search, setSearch] = useState('');
+  const [projectStatusFilter, setProjectStatusFilter] = useState<'all' | ProjectStatus>('all');
+  const [projectCategoryFilter, setProjectCategoryFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<'all' | number>('all');
+  const [skillFilter, setSkillFilter] = useState<'all' | SkillCategory>('all');
+
+  // Shared Campus Projects State (Persisted)
+  const [publishedProjects, setPublishedProjects] = useState<StudentProject[]>(() => {
+    try {
+      const saved = localStorage.getItem(SHARED_PROJECTS_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
       }
-      return [updatedProfile, ...prev];
-    });
-  };
+    } catch {
+      // ignore
+    }
+    return INITIAL_SHARED_PROJECTS;
+  });
 
-  // Synthetic or grounded talent profiles mapped to registered students
+  // Save to localStorage whenever published projects change
+  useEffect(() => {
+    try {
+      localStorage.setItem(SHARED_PROJECTS_STORAGE_KEY, JSON.stringify(publishedProjects));
+    } catch (err) {
+      console.warn('Failed to persist published projects:', err);
+    }
+  }, [publishedProjects]);
+
+  // Modals state
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [selectedProjectForDetail, setSelectedProjectForDetail] = useState<StudentProject | null>(null);
+  const [selectedStudentForProfile, setSelectedStudentForProfile] = useState<TalentProfile | null>(null);
+
+  // New Project Form State
+  const [projectForm, setProjectForm] = useState({
+    title: '',
+    summary: '',
+    description: '',
+    category: 'ai_ml',
+    technologies: '',
+    skillsDemonstrated: '',
+    githubUrl: '',
+    liveUrl: '',
+    status: 'completed' as ProjectStatus,
+    visibility: 'college_visible' as ProjectVisibility,
+  });
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Talent Profiles State
   const [talentProfiles, setTalentProfiles] = useState<TalentProfile[]>(() => {
     return students.map((s, idx) => {
       const year = Math.ceil(s.semester / 2) || 1;
@@ -87,6 +217,8 @@ export const TalentRadarView: React.FC = () => {
             technologies: ['TypeScript', 'Node.js', 'PostgreSQL'],
             githubUrl: `https://github.com/example/${s.id.toLowerCase()}-engine`,
             verified: true,
+            status: 'completed',
+            visibility: 'college_visible',
           },
         ],
         certifications: ['AWS Certified Cloud Practitioner', 'TensorFlow Developer Certificate'],
@@ -103,610 +235,1108 @@ export const TalentRadarView: React.FC = () => {
     });
   });
 
-  const [search, setSearch] = useState('');
-  const [yearFilter, setYearFilter] = useState<'all' | number>('all');
-  const [skillFilter, setSkillFilter] = useState<'all' | SkillCategory>('all');
-  const [recruiterOnly, setRecruiterOnly] = useState(false);
-
-  // Skill Gap Modal
-  const [selectedStudentForGap, setSelectedStudentForGap] = useState<TalentProfile | null>(null);
-  const [targetCareerRole, setTargetCareerRole] = useState<'ai_engineer' | 'fullstack' | 'cybersecurity'>('ai_engineer');
-
-  // Add Skill Modal
-  const [isAddSkillModalOpen, setIsAddSkillModalOpen] = useState(false);
-  const [selectedProfileForSkill, setSelectedProfileForSkill] = useState<TalentProfile | null>(null);
-  const [newSkillName, setNewSkillName] = useState('');
-  const [newSkillCategory, setNewSkillCategory] = useState<SkillCategory>('languages');
-  const [newSkillProficiency, setNewSkillProficiency] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
-
-  const handleAddSkill = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProfileForSkill || !newSkillName.trim()) return;
-
-    setTalentProfiles((prev) =>
-      prev.map((p) => {
-        if (p.studentId !== selectedProfileForSkill.studentId) return p;
-        return {
-          ...p,
-          primarySkills: [
-            ...p.primarySkills,
-            {
-              name: newSkillName.trim(),
-              category: newSkillCategory,
-              proficiency: newSkillProficiency,
-              verificationStatus: 'student_reported',
-            },
-          ],
-        };
-      })
-    );
-
-    showToast('success', 'Skill Added', `"${newSkillName}" added to profile as Student-Reported.`);
-    setIsAddSkillModalOpen(false);
-    setSelectedProfileForSkill(null);
-    setNewSkillName('');
+  const handleMyProfileUpdate = (updatedProfile: TalentProfile) => {
+    setTalentProfiles((prev) => {
+      const idx = prev.findIndex((p) => p.studentId === updatedProfile.studentId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updatedProfile;
+        return next;
+      }
+      return [updatedProfile, ...prev];
+    });
   };
 
-  // Filtered talent profiles
-  const filteredProfiles = talentProfiles.filter((p) => {
-    const matchesSearch =
-      p.studentName.toLowerCase().includes(search.toLowerCase()) ||
-      p.studentId.toLowerCase().includes(search.toLowerCase()) ||
-      p.primarySkills.some((s) => s.name.toLowerCase().includes(search.toLowerCase()));
+  // Helper to check ownership
+  const currentUserId = user?.id || 'current_user';
+  const currentUserName = userProfile?.fullName || 'Alex Rivera';
 
-    const matchesYear = yearFilter === 'all' || p.year === yearFilter;
-    const matchesSkill = skillFilter === 'all' || p.primarySkills.some((s) => s.category === skillFilter);
-    const matchesRecruiter = !recruiterOnly || p.recruiterVisible;
+  // Publish / Add Project Handler
+  const handlePublishProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
 
-    return matchesSearch && matchesYear && matchesSkill && matchesRecruiter;
-  });
+    if (!projectForm.title.trim()) {
+      errors.title = 'Project title is required.';
+    }
+    if (!projectForm.summary.trim()) {
+      errors.summary = 'Short summary is required.';
+    }
 
-  // Calculate career gap recommendations
-  const getCareerRoadmap = (profile: TalentProfile): CareerRoadmapGoal => {
-    if (targetCareerRole === 'ai_engineer') {
-      const required = ['Python', 'Linear Algebra', 'PyTorch / TensorFlow', 'Model Evaluation', 'Docker'];
-      const demonstrated = profile.primarySkills.map((s) => s.name);
-      const gaps = required.filter((r) => !demonstrated.some((d) => d.toLowerCase().includes(r.toLowerCase())));
-      const match = Math.round(((required.length - gaps.length) / required.length) * 100);
+    // URL validation if provided
+    const isValidUrl = (url: string) => {
+      if (!url.trim()) return true;
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
 
-      return {
-        roleTitle: 'Junior AI/ML Engineer',
-        requiredSkills: required,
-        demonstratedSkills: demonstrated,
-        skillGaps: gaps,
-        matchPercentage: match,
-        recommendedActions: [
-          {
-            priority: 'high',
-            action: 'Complete PyTorch Deep Learning Specialization and implement a CNN vision model.',
-            resource: 'DeepLearning.AI / Fast.ai Coursework',
-            estimatedWeeks: 4,
-          },
-          {
-            priority: 'medium',
-            action: 'Containerize an ML model inference API with FastAPI and Docker.',
-            resource: 'Practical MLOps Guide',
-            estimatedWeeks: 2,
-          },
-        ],
-      };
-    } else if (targetCareerRole === 'cybersecurity') {
-      const required = ['Linux Internals', 'Network Protocols (TCP/IP)', 'Cryptography', 'SIEM & Log Analysis'];
-      const demonstrated = profile.primarySkills.map((s) => s.name);
-      const gaps = required.filter((r) => !demonstrated.some((d) => d.toLowerCase().includes(r.toLowerCase())));
-      const match = Math.round(((required.length - gaps.length) / required.length) * 100);
+    if (projectForm.githubUrl.trim() && !isValidUrl(projectForm.githubUrl.trim())) {
+      errors.githubUrl = 'Enter a valid URL (e.g. https://github.com/user/repo).';
+    }
+    if (projectForm.liveUrl.trim() && !isValidUrl(projectForm.liveUrl.trim())) {
+      errors.liveUrl = 'Enter a valid URL (e.g. https://demo.example.com).';
+    }
 
-      return {
-        roleTitle: 'Cybersecurity Threat Analyst',
-        requiredSkills: required,
-        demonstratedSkills: demonstrated,
-        skillGaps: gaps,
-        matchPercentage: match,
-        recommendedActions: [
-          {
-            priority: 'high',
-            action: 'Complete TryHackMe / HackTheBox SOC Level 1 Pathway.',
-            resource: 'Network Defense & Packet Analysis Lab',
-            estimatedWeeks: 3,
-          },
-        ],
-      };
-    } else {
-      const required = ['TypeScript', 'React / Next.js', 'PostgreSQL', 'REST & GraphQL APIs', 'CI/CD Pipelines'];
-      const demonstrated = profile.primarySkills.map((s) => s.name);
-      const gaps = required.filter((r) => !demonstrated.some((d) => d.toLowerCase().includes(r.toLowerCase())));
-      const match = Math.round(((required.length - gaps.length) / required.length) * 100);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      showToast('error', 'Validation Error', 'Please correct the highlighted form errors.');
+      return;
+    }
 
-      return {
-        roleTitle: 'Full-Stack Cloud Developer',
-        requiredSkills: required,
-        demonstratedSkills: demonstrated,
-        skillGaps: gaps,
-        matchPercentage: match,
-        recommendedActions: [
-          {
-            priority: 'high',
-            action: 'Build a production microservice with automated GitHub Actions CI/CD pipeline.',
-            resource: 'Full-Stack Open Curriculum',
-            estimatedWeeks: 3,
-          },
-        ],
-      };
+    const techList = projectForm.technologies
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const skillsList = projectForm.skillsDemonstrated
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const newProject: StudentProject = {
+      id: `proj-${Date.now()}`,
+      title: projectForm.title.trim(),
+      summary: projectForm.summary.trim(),
+      description: projectForm.description.trim() || projectForm.summary.trim(),
+      category: projectForm.category,
+      technologies: techList.length > 0 ? techList : ['Software Engineering'],
+      skillsDemonstrated: skillsList.length > 0 ? skillsList : ['System Design'],
+      githubUrl: projectForm.githubUrl.trim() || undefined,
+      liveUrl: projectForm.liveUrl.trim() || undefined,
+      status: projectForm.status,
+      visibility: projectForm.visibility,
+      ownerStudentId: currentUserId,
+      ownerName: currentUserName,
+      verified: projectForm.status === 'completed' && Boolean(projectForm.githubUrl.trim()),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    setPublishedProjects((prev) => [newProject, ...prev]);
+
+    // Reset Form & Close Modal
+    setProjectForm({
+      title: '',
+      summary: '',
+      description: '',
+      category: 'ai_ml',
+      technologies: '',
+      skillsDemonstrated: '',
+      githubUrl: '',
+      liveUrl: '',
+      status: 'completed',
+      visibility: 'college_visible',
+    });
+    setFormErrors({});
+    setIsPublishModalOpen(false);
+
+    showToast(
+      'success',
+      'Project Published',
+      `"${newProject.title}" is now published and discoverable to campus students!`
+    );
+  };
+
+  // Delete / Unpublish Project (Owner only)
+  const handleDeleteProject = (projectId: string, projectTitle: string) => {
+    if (window.confirm(`Are you sure you want to unpublish and delete "${projectTitle}"?`)) {
+      setPublishedProjects((prev) => prev.filter((p) => p.id !== projectId));
+      if (selectedProjectForDetail?.id === projectId) {
+        setSelectedProjectForDetail(null);
+      }
+      showToast('info', 'Project Unpublished', `"${projectTitle}" has been removed from public discovery.`);
     }
   };
 
-  const toggleRecruiterVisibility = (studentId: string) => {
-    setTalentProfiles((prev) =>
-      prev.map((p) => {
-        if (p.studentId === studentId) {
-          const nextState = !p.recruiterVisible;
-          showToast(
-            'success',
-            'Privacy Consent Updated',
-            `Recruiter profile visibility for ${p.studentName} set to ${nextState ? 'VISIBLE' : 'HIDDEN'}.`
-          );
-          return { ...p, recruiterVisible: nextState };
-        }
-        return p;
-      })
-    );
-  };
+  // Filtered Projects for Discovery Feed
+  const filteredProjects = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return publishedProjects.filter((proj) => {
+      // Visibility rule: must be college_visible OR owned by current user
+      const isVisible =
+        proj.visibility === 'college_visible' || proj.ownerStudentId === currentUserId;
+      if (!isVisible) return false;
+
+      // Status Filter
+      if (projectStatusFilter !== 'all' && proj.status !== projectStatusFilter) {
+        return false;
+      }
+
+      // Category Filter
+      if (projectCategoryFilter !== 'all' && proj.category !== projectCategoryFilter) {
+        return false;
+      }
+
+      // Search Query
+      if (!q) return true;
+
+      const matchesTitle = proj.title.toLowerCase().includes(q);
+      const matchesSummary = (proj.summary || '').toLowerCase().includes(q);
+      const matchesDescription = proj.description.toLowerCase().includes(q);
+      const matchesOwner = (proj.ownerName || '').toLowerCase().includes(q);
+      const matchesTech = proj.technologies.some((t) => t.toLowerCase().includes(q));
+      const matchesSkills = (proj.skillsDemonstrated || []).some((s) => s.toLowerCase().includes(q));
+
+      return (
+        matchesTitle ||
+        matchesSummary ||
+        matchesDescription ||
+        matchesOwner ||
+        matchesTech ||
+        matchesSkills
+      );
+    });
+  }, [publishedProjects, search, projectStatusFilter, projectCategoryFilter, currentUserId]);
+
+  // Filtered Students for Student Discovery
+  const filteredStudents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return talentProfiles.filter((profile) => {
+      // Year filter
+      if (yearFilter !== 'all' && profile.year !== yearFilter) return false;
+
+      // Domain filter
+      if (skillFilter !== 'all' && !profile.primarySkills.some((s) => s.category === skillFilter)) {
+        return false;
+      }
+
+      // Search query
+      if (!q) return true;
+
+      const matchesName = profile.studentName.toLowerCase().includes(q);
+      const matchesId = profile.studentId.toLowerCase().includes(q);
+      const matchesCourse = profile.course.toLowerCase().includes(q);
+      const matchesBio = (profile.bio || '').toLowerCase().includes(q);
+      const matchesSkills = profile.primarySkills.some((s) => s.name.toLowerCase().includes(q));
+      const matchesProjects = profile.projects.some(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.technologies.some((t) => t.toLowerCase().includes(q))
+      );
+
+      return matchesName || matchesId || matchesCourse || matchesBio || matchesSkills || matchesProjects;
+    });
+  }, [talentProfiles, search, yearFilter, skillFilter]);
 
   return (
-    <div className="space-y-6">
-      {/* Sub-Navigation Tabs: My Portfolio vs Campus Talent Radar */}
+    <div className="space-y-6 animate-fadeIn pb-16">
+      {/* 1. Header Bar with Search & Publish Trigger */}
+      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-800 relative overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-mono mb-2 border border-cyan-500/30">
+              <Compass className="w-3.5 h-3.5" />
+              <span>TALENT RADAR • CAMPUS TALENT & PROJECT DISCOVERY</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              Talent Radar & Project Discovery
+            </h1>
+            <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              Explore open-source repositories, engineering projects, and research ideas published by students across all 4 years. Search by name, programming language, or tech stack.
+            </p>
+          </div>
+
+          {/* Quick Publish Action */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsPublishModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-wildfire-blue hover:from-cyan-400 hover:to-wildfire-blue-hover text-slate-950 font-bold text-xs font-mono uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(0,229,255,0.35)] cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Publish Project or Idea</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Global Talent Radar Search Bar */}
+        <div className="mt-6 relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400" />
+          <input
+            type="text"
+            placeholder="Search students, projects, skills, or technologies... (e.g. Alex, Python, React, Machine Learning)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-950/90 border border-slate-800 rounded-2xl pl-11 pr-10 py-3 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-400 shadow-inner font-medium transition-all"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Primary Navigation Tabs: Discover Projects vs Discover Students vs My Portfolio */}
       <div className="flex border-b border-slate-800 text-xs font-semibold space-x-2 sm:space-x-6 overflow-x-auto">
         <button
-          onClick={() => setViewMode('my_portfolio')}
+          onClick={() => setActiveTab('discover_projects')}
           className={`pb-3 px-2 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
-            viewMode === 'my_portfolio'
+            activeTab === 'discover_projects'
               ? 'border-cyan-400 text-cyan-300 font-bold shadow-[0_2px_10px_rgba(0,229,255,0.3)]'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          <User className="w-4 h-4 text-cyan-400" />
-          <span>My Developer Portfolio & Repositories</span>
+          <FolderGit2 className="w-4 h-4 text-cyan-400" />
+          <span>Explore Projects & Ideas ({filteredProjects.length})</span>
         </button>
 
         <button
-          onClick={() => setViewMode('campus_radar')}
+          onClick={() => setActiveTab('discover_students')}
           className={`pb-3 px-2 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
-            viewMode === 'campus_radar'
+            activeTab === 'discover_students'
               ? 'border-cyan-400 text-cyan-300 font-bold shadow-[0_2px_10px_rgba(0,229,255,0.3)]'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
           <Compass className="w-4 h-4 text-wildfire-blue" />
-          <span>Campus Talent Radar & Institutional Discovery (Years 1 to 4)</span>
+          <span>Student Talent Discovery ({filteredStudents.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('my_portfolio')}
+          className={`pb-3 px-2 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+            activeTab === 'my_portfolio'
+              ? 'border-cyan-400 text-cyan-300 font-bold shadow-[0_2px_10px_rgba(0,229,255,0.3)]'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <User className="w-4 h-4 text-emerald-400" />
+          <span>My Developer Portfolio & Management</span>
         </button>
       </div>
 
-      {viewMode === 'my_portfolio' ? (
-        <StudentPortfolioEditor onProfileUpdate={handleMyProfileUpdate} />
-      ) : (
-        <>
-          {/* Header Bar */}
-          <div className="p-6 rounded-3xl bg-gradient-to-r from-wildfire-card via-slate-900 to-slate-950 border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-400 text-xs font-mono mb-2">
-            <Compass className="w-3.5 h-3.5" />
-            <span>WILD FIRE TALENT RADAR • YEARS 1 TO 4</span>
-          </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Talent Discovery & Skill Intelligence</h2>
-          <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-            Discover student talent across all 4 engineering years based on verified technical abilities, coding portfolios, and hackathon achievements.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3.5 py-2 rounded-xl text-xs font-mono">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span className="text-slate-300">Recruiter Privacy Protection Active</span>
-        </div>
-      </div>
-
-      {/* Filters Bar */}
-      <GlassCard className="p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by student, skill, or language..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-wildfire-blue"
-            />
-          </div>
-
-          {/* Academic Year */}
-          <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-xl px-2.5 py-1.5">
-            <span className="text-slate-400 font-mono text-[11px]">Year:</span>
-            <select
-              value={yearFilter}
-              onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-              className="bg-transparent text-slate-200 focus:outline-none cursor-pointer text-xs"
-            >
-              <option value="all" className="bg-slate-900">All 4 Years</option>
-              <option value="1" className="bg-slate-900">Year 1 (Freshmen Talent)</option>
-              <option value="2" className="bg-slate-900">Year 2 (Rising Stars)</option>
-              <option value="3" className="bg-slate-900">Year 3 (Internship Ready)</option>
-              <option value="4" className="bg-slate-900">Year 4 (Placement Ready)</option>
-            </select>
-          </div>
-
-          {/* Skill Domain */}
-          <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-xl px-2.5 py-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-400 font-mono text-[11px]">Domain:</span>
-            <select
-              value={skillFilter}
-              onChange={(e) => setSkillFilter(e.target.value as any)}
-              className="bg-transparent text-slate-200 focus:outline-none cursor-pointer text-xs"
-            >
-              <option value="all" className="bg-slate-900">All Technical Domains</option>
-              <option value="ai_ml" className="bg-slate-900">AI & Machine Learning</option>
-              <option value="dsa" className="bg-slate-900">Data Structures & Algorithms</option>
-              <option value="languages" className="bg-slate-900">Programming Languages</option>
-              <option value="web_mobile" className="bg-slate-900">Full Stack & Mobile</option>
-              <option value="cloud_devops" className="bg-slate-900">Cloud & DevOps</option>
-              <option value="cybersecurity" className="bg-slate-900">Cybersecurity</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Recruiter Visibility Toggle Filter */}
-        <label className="flex items-center gap-2 cursor-pointer text-slate-300 font-mono text-[11px]">
-          <input
-            type="checkbox"
-            checked={recruiterOnly}
-            onChange={(e) => setRecruiterOnly(e.target.checked)}
-            className="rounded border-slate-700 text-wildfire-blue focus:ring-wildfire-blue"
-          />
-          <span>Consented for Recruiters Only</span>
-        </label>
-      </GlassCard>
-
-      {/* Talent Profiles Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredProfiles.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-slate-400">
-            <Compass className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <p>No student talent profiles match the selected domain filters.</p>
-          </div>
-        ) : (
-          filteredProfiles.map((profile) => (
-            <GlassCard key={profile.studentId} className="p-5 flex flex-col justify-between space-y-4">
-              <div className="space-y-3">
-                {/* Header */}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <span>{profile.studentName}</span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                        Year {profile.year}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-400">{profile.course} • Sem {profile.semester}</p>
-                  </div>
-
-                  {/* Recruiter Consent Toggle Button */}
-                  <button
-                    onClick={() => toggleRecruiterVisibility(profile.studentId)}
-                    title={profile.recruiterVisible ? 'Profile visible to approved placement partners' : 'Profile hidden from placement partners'}
-                    className={`p-1.5 rounded-lg border transition-all ${
-                      profile.recruiterVisible
-                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                        : 'bg-slate-800 text-slate-500 border-slate-700'
-                    }`}
-                  >
-                    {profile.recruiterVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                </div>
-
-                <p className="text-xs text-slate-300 leading-relaxed italic">
-                  "{profile.bio}"
-                </p>
-
-                {/* Problem Solving Stat */}
-                {profile.problemSolvingStats && (
-                  <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono">
-                    <Code className="w-4 h-4 text-wildfire-blue" />
-                    <span className="text-slate-300 font-semibold">{profile.problemSolvingStats.platform}:</span>
-                    <span className="text-emerald-400 font-bold">{profile.problemSolvingStats.problemsSolved} Solved</span>
-                    <span className="text-slate-500">• {profile.problemSolvingStats.rating}</span>
-                  </div>
-                )}
-
-                {/* Technical Skills Badges */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Demonstrated Skills</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {profile.primarySkills.map((sk, idx) => (
-                      <span
-                        key={idx}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border ${
-                          sk.verificationStatus === 'faculty_verified'
-                            ? 'bg-cyan-950/40 text-cyan-300 border-cyan-500/40'
-                            : sk.verificationStatus === 'independently_verified'
-                            ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40'
-                            : 'bg-slate-900 text-slate-300 border-slate-800'
-                        }`}
-                      >
-                        {sk.verificationStatus !== 'student_reported' && (
-                          <CheckCircle2 className="w-3 h-3 text-cyan-400 flex-shrink-0" />
-                        )}
-                        <span>{sk.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Featured Project */}
-                {profile.projects.length > 0 && (
-                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs space-y-1">
-                    <div className="flex items-center justify-between font-semibold text-white">
-                      <span>{profile.projects[0].title}</span>
-                      <a
-                        href={profile.projects[0].githubUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-slate-400 hover:text-white"
-                      >
-                        <Github className="w-3.5 h-3.5" />
-                      </a>
-                    </div>
-                    <p className="text-[11px] text-slate-400 line-clamp-2">
-                      {profile.projects[0].description}
-                    </p>
-                  </div>
-                )}
+      {/* ============================================================ */}
+      {/* TAB 1: EXPLORE PROJECTS & IDEAS (SHARED DISCOVERY FEED)       */}
+      {/* ============================================================ */}
+      {activeTab === 'discover_projects' && (
+        <div className="space-y-6">
+          {/* Filters Bar for Projects */}
+          <GlassCard className="p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Status Tabs */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  onClick={() => setProjectStatusFilter('all')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
+                    projectStatusFilter === 'all'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  All Statuses
+                </button>
+                <button
+                  onClick={() => setProjectStatusFilter('idea')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1 ${
+                    projectStatusFilter === 'idea'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Lightbulb className="w-3 h-3 text-amber-400" />
+                  <span>Ideas</span>
+                </button>
+                <button
+                  onClick={() => setProjectStatusFilter('in_progress')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
+                    projectStatusFilter === 'in_progress'
+                      ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  In Progress
+                </button>
+                <button
+                  onClick={() => setProjectStatusFilter('completed')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1 ${
+                    projectStatusFilter === 'completed'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span>Completed</span>
+                </button>
               </div>
 
-              {/* Action: Skill Gap Analysis */}
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[10px] font-mono text-slate-400">
-                  {profile.recruiterVisible ? '✅ Consented for Recruiters' : '🔒 Student Private'}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => {
-                      setSelectedProfileForSkill(profile);
-                      setIsAddSkillModalOpen(true);
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-mono transition-all"
-                    title="Submit new technical skill"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Skill</span>
-                  </button>
-                  <button
-                    onClick={() => setSelectedStudentForGap(profile)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wildfire-blue/20 text-wildfire-cyan hover:bg-wildfire-blue/30 border border-wildfire-blue/40 font-mono text-xs font-bold transition-all cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Skill Gap</span>
-                  </button>
-                </div>
+              {/* Category Filter */}
+              <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-slate-400 font-mono text-[11px]">Category:</span>
+                <select
+                  value={projectCategoryFilter}
+                  onChange={(e) => setProjectCategoryFilter(e.target.value)}
+                  className="bg-transparent text-slate-200 focus:outline-none cursor-pointer text-xs"
+                >
+                  <option value="all" className="bg-slate-900">All Categories</option>
+                  <option value="ai_ml" className="bg-slate-900">AI & Machine Learning</option>
+                  <option value="web_mobile" className="bg-slate-900">Full Stack & Web</option>
+                  <option value="systems" className="bg-slate-900">Systems & Infrastructure</option>
+                  <option value="iot" className="bg-slate-900">IoT & Robotics</option>
+                  <option value="cybersecurity" className="bg-slate-900">Cybersecurity</option>
+                </select>
               </div>
+            </div>
+
+            <span className="text-[11px] font-mono text-slate-400">
+              Showing {filteredProjects.length} published project{filteredProjects.length !== 1 ? 's' : ''}
+            </span>
+          </GlassCard>
+
+          {/* Projects Discovery Grid */}
+          {filteredProjects.length === 0 ? (
+            <GlassCard className="p-12 text-center space-y-3">
+              <FolderGit2 className="w-10 h-10 text-slate-600 mx-auto" />
+              <h3 className="text-base font-bold text-white">No Published Projects Found</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                {search
+                  ? `No published projects match your search for "${search}". Try searching for another keyword or language.`
+                  : 'Be the first student to publish an engineering project or research idea!'}
+              </p>
+              {search ? (
+                <button
+                  onClick={() => setSearch('')}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-mono transition-colors"
+                >
+                  Clear Search Filter
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsPublishModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-all"
+                >
+                  Publish First Project
+                </button>
+              )}
             </GlassCard>
-          ))
-        )}
-      </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredProjects.map((project) => {
+                const isOwner = project.ownerStudentId === currentUserId;
 
-      {/* Skill Gap Analysis Modal */}
-      {selectedStudentForGap && (
-        <Modal
-          isOpen={true}
-          onClose={() => setSelectedStudentForGap(null)}
-          title={`Skill Gap Analysis: ${selectedStudentForGap.studentName}`}
-          subtitle={`Year ${selectedStudentForGap.year} • Target Career Pathway Roadmap`}
-          maxWidth="lg"
-        >
-          {(() => {
-            const roadmap = getCareerRoadmap(selectedStudentForGap);
-            return (
-              <div className="space-y-5 text-xs font-sans">
-                {/* Career Role Selector */}
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1.5">Select Target Industry Role:</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setTargetCareerRole('ai_engineer')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                        targetCareerRole === 'ai_engineer'
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                          : 'bg-slate-900 text-slate-400 border-slate-800'
-                      }`}
-                    >
-                      AI/ML Engineer
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTargetCareerRole('fullstack')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                        targetCareerRole === 'fullstack'
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                          : 'bg-slate-900 text-slate-400 border-slate-800'
-                      }`}
-                    >
-                      Full Stack Cloud
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTargetCareerRole('cybersecurity')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                        targetCareerRole === 'cybersecurity'
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                          : 'bg-slate-900 text-slate-400 border-slate-800'
-                      }`}
-                    >
-                      Cybersecurity
-                    </button>
-                  </div>
-                </div>
-
-                {/* Match Score Card */}
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono text-slate-400 uppercase">Target Readiness Match</span>
-                    <h4 className="text-xl font-bold text-white mt-0.5">{roadmap.roleTitle}</h4>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-extrabold font-mono text-cyan-400">{roadmap.matchPercentage}%</span>
-                    <span className="text-[10px] text-slate-500 block">Syllabus Competency Match</span>
-                  </div>
-                </div>
-
-                {/* Skills Breakdown Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-2">
-                    <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Skills Demonstrated</span>
-                    </span>
-                    <ul className="space-y-1 text-[11px] text-slate-300">
-                      {roadmap.demonstratedSkills.slice(0, 4).map((s, idx) => (
-                        <li key={idx} className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                          <span>{s}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-2">
-                    <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4" />
-                      <span>Target Skill Gaps</span>
-                    </span>
-                    <ul className="space-y-1 text-[11px] text-slate-300">
-                      {roadmap.skillGaps.map((s, idx) => (
-                        <li key={idx} className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                          <span>{s}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Practical Learning Roadmap */}
-                <div className="space-y-2">
-                  <h5 className="font-bold text-slate-200">Recommended Milestone Action Plan:</h5>
-                  <div className="space-y-2">
-                    {roadmap.recommendedActions.map((act, idx) => (
-                      <div key={idx} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-white">{act.action}</span>
-                          <span className="font-mono text-[10px] text-cyan-400">~{act.estimatedWeeks} Weeks</span>
-                        </div>
-                        <p className="text-[11px] text-slate-400">Resource: {act.resource}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-3 border-t border-slate-800">
-                  <button
-                    onClick={() => setSelectedStudentForGap(null)}
-                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white"
+                return (
+                  <GlassCard
+                    key={project.id || project.title}
+                    glow="blue"
+                    className="p-5 flex flex-col justify-between space-y-4 hover:border-cyan-500/40 transition-all cursor-pointer group"
+                    onClick={() => setSelectedProjectForDetail(project)}
                   >
-                    Close Roadmap
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-        </Modal>
+                    <div className="space-y-3">
+                      {/* Top Badges & Status */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {project.status === 'idea' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-mono font-bold">
+                              <Lightbulb className="w-3 h-3 text-amber-400" />
+                              <span>Idea</span>
+                            </span>
+                          ) : project.status === 'in_progress' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[10px] font-mono font-bold">
+                              <span>⚡ In Progress</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono font-bold">
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span>Completed</span>
+                            </span>
+                          )}
+
+                          <span className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-400 uppercase">
+                            {project.category?.replace(/_/g, ' ') || 'Software'}
+                          </span>
+                        </div>
+
+                        {/* Visibility indicator */}
+                        <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                          {project.visibility === 'private' ? (
+                            <span className="flex items-center gap-0.5 text-amber-400">
+                              <Lock className="w-3 h-3" /> Private
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-0.5 text-slate-400">
+                              <Globe className="w-3 h-3 text-cyan-400" /> College
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Project Title */}
+                      <h3 className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-2">
+                        {project.title}
+                      </h3>
+
+                      {/* Summary */}
+                      <p className="text-xs text-slate-300 line-clamp-3 leading-relaxed">
+                        {project.summary || project.description}
+                      </p>
+
+                      {/* Technologies Tags */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {project.technologies.slice(0, 4).map((tech, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-md bg-slate-900/90 border border-slate-800 text-[10px] font-mono text-cyan-300 font-medium"
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                        {project.technologies.length > 4 && (
+                          <span className="px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-400">
+                            +{project.technologies.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Metadata & Owner */}
+                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                      {/* Owner Info */}
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-[10px] font-mono font-bold text-cyan-300">
+                          {(project.ownerName || 'Student').slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="text-xs text-slate-300 font-medium">
+                          {project.ownerName || 'Verified Student'}
+                        </span>
+                      </div>
+
+                      {/* External Links */}
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        {project.githubUrl && (
+                          <a
+                            href={project.githubUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
+                            title="Open GitHub Repository"
+                          >
+                            <Github className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        {project.liveUrl && (
+                          <a
+                            href={project.liveUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-cyan-400 hover:text-cyan-300 hover:border-cyan-500/40 transition-colors"
+                            title="Open Live Demo"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        {isOwner && (
+                          <button
+                            onClick={() => handleDeleteProject(project.id!, project.title)}
+                            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-red-400 hover:text-red-300 hover:border-red-500/40 transition-colors"
+                            title="Unpublish / Delete My Project"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </GlassCard>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Add Technical Skill Modal */}
-      {isAddSkillModalOpen && selectedProfileForSkill && (
+      {/* ============================================================ */}
+      {/* TAB 2: STUDENT TALENT DISCOVERY (STUDENT DIRECTORY & SKILLS)  */}
+      {/* ============================================================ */}
+      {activeTab === 'discover_students' && (
+        <div className="space-y-6">
+          {/* Year & Skill Filter Bar */}
+          <GlassCard className="p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Year Select */}
+              <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
+                <span className="text-slate-400 font-mono text-[11px]">Academic Year:</span>
+                <select
+                  value={yearFilter}
+                  onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                  className="bg-transparent text-slate-200 focus:outline-none cursor-pointer text-xs"
+                >
+                  <option value="all" className="bg-slate-900">All 4 Years</option>
+                  <option value="1" className="bg-slate-900">Year 1 (Freshmen)</option>
+                  <option value="2" className="bg-slate-900">Year 2 (Rising Stars)</option>
+                  <option value="3" className="bg-slate-900">Year 3 (Internship Ready)</option>
+                  <option value="4" className="bg-slate-900">Year 4 (Placement Ready)</option>
+                </select>
+              </div>
+
+              {/* Domain Select */}
+              <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-slate-400 font-mono text-[11px]">Domain:</span>
+                <select
+                  value={skillFilter}
+                  onChange={(e) => setSkillFilter(e.target.value as any)}
+                  className="bg-transparent text-slate-200 focus:outline-none cursor-pointer text-xs"
+                >
+                  <option value="all" className="bg-slate-900">All Technical Domains</option>
+                  <option value="ai_ml" className="bg-slate-900">AI & Machine Learning</option>
+                  <option value="dsa" className="bg-slate-900">Data Structures & Algorithms</option>
+                  <option value="languages" className="bg-slate-900">Programming Languages</option>
+                  <option value="web_mobile" className="bg-slate-900">Full Stack & Mobile</option>
+                  <option value="cloud_devops" className="bg-slate-900">Cloud & DevOps</option>
+                </select>
+              </div>
+            </div>
+
+            <span className="text-[11px] font-mono text-slate-400">
+              Showing {filteredStudents.length} student profile{filteredStudents.length !== 1 ? 's' : ''}
+            </span>
+          </GlassCard>
+
+          {/* Students Grid */}
+          {filteredStudents.length === 0 ? (
+            <GlassCard className="p-12 text-center space-y-3">
+              <User className="w-10 h-10 text-slate-600 mx-auto" />
+              <h3 className="text-base font-bold text-white">No Students Found</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                No students match your search criteria. Try clearing search keywords or filters.
+              </p>
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setYearFilter('all');
+                  setSkillFilter('all');
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-mono transition-colors"
+              >
+                Reset All Filters
+              </button>
+            </GlassCard>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredStudents.map((profile) => (
+                <GlassCard
+                  key={profile.studentId}
+                  className="p-5 flex flex-col justify-between space-y-4 hover:border-cyan-500/40 transition-all cursor-pointer"
+                  onClick={() => setSelectedStudentForProfile(profile)}
+                >
+                  <div className="space-y-3">
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-wildfire-blue p-[1px]">
+                          <div className="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center font-bold text-xs text-cyan-300 font-mono">
+                            {profile.studentName.slice(0, 2).toUpperCase()}
+                          </div>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                            <span>{profile.studentName}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                              Y{profile.year}
+                            </span>
+                          </h3>
+                          <p className="text-[11px] text-slate-400">{profile.course} • Sem {profile.semester}</p>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                        {profile.projects.length} Project{profile.projects.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-300 line-clamp-2 italic">
+                      "{profile.bio}"
+                    </p>
+
+                    {/* Problem Solving Stat */}
+                    {profile.problemSolvingStats && (
+                      <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono">
+                        <Code className="w-3.5 h-3.5 text-cyan-400" />
+                        <span className="text-slate-300">{profile.problemSolvingStats.platform}:</span>
+                        <span className="text-emerald-400 font-bold">{profile.problemSolvingStats.problemsSolved} Solved</span>
+                        <span className="text-slate-500">• {profile.problemSolvingStats.rating}</span>
+                      </div>
+                    )}
+
+                    {/* Demonstrated Skills Tags */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
+                        Demonstrated Skills
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {profile.primarySkills.map((sk, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] text-slate-300 font-medium"
+                          >
+                            {sk.verificationStatus !== 'student_reported' && (
+                              <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                            )}
+                            <span>{sk.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Action: View Public Portfolio */}
+                  <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                    <span className="text-[11px] font-mono text-slate-400">
+                      @{profile.githubUsername || 'student'}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedStudentForProfile(profile);
+                      }}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold inline-flex items-center gap-1"
+                    >
+                      <span>View Public Portfolio</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 3: MY PORTFOLIO & PROJECTS (STUDENT'S MANAGEMENT HUB)    */}
+      {/* ============================================================ */}
+      {activeTab === 'my_portfolio' && (
+        <StudentPortfolioEditor onProfileUpdate={handleMyProfileUpdate} />
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 1: ADD PROJECT / PUBLISH IDEA                           */}
+      {/* ============================================================ */}
+      {isPublishModalOpen && (
         <Modal
           isOpen={true}
-          onClose={() => {
-            setIsAddSkillModalOpen(false);
-            setSelectedProfileForSkill(null);
-          }}
-          title={`Submit Technical Skill: ${selectedProfileForSkill.studentName}`}
-          subtitle="Add technical competency to talent profile for faculty verification"
-          maxWidth="md"
+          onClose={() => setIsPublishModalOpen(false)}
+          title="Publish Project or Idea"
+          subtitle="Share your open-source project, prototype, or research idea with campus peers and recruiters."
+          maxWidth="lg"
         >
-          <form onSubmit={handleAddSkill} className="space-y-4 text-xs font-sans">
+          <form onSubmit={handlePublishProject} className="space-y-4 text-xs font-sans">
+            {/* Title */}
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Skill Name:</label>
+              <label className="block text-slate-300 font-semibold mb-1">
+                Project Title <span className="text-cyan-400">*</span>
+              </label>
               <input
                 type="text"
-                required
-                placeholder="e.g. PyTorch, Rust, Kubernetes, Penetration Testing"
-                value={newSkillName}
-                onChange={(e) => setNewSkillName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
+                placeholder="e.g. Distributed Consensus Engine"
+                value={projectForm.title}
+                onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+              />
+              {formErrors.title && <p className="text-[11px] text-red-400 mt-1">{formErrors.title}</p>}
+            </div>
+
+            {/* Short Summary */}
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">
+                Short Summary (1-2 sentences) <span className="text-cyan-400">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. High-performance Raft algorithm prototype implemented in Go."
+                value={projectForm.summary}
+                onChange={(e) => setProjectForm({ ...projectForm, summary: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+              />
+              {formErrors.summary && <p className="text-[11px] text-red-400 mt-1">{formErrors.summary}</p>}
+            </div>
+
+            {/* Detailed Description / Problem Statement */}
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">
+                Detailed Problem Statement & Solution
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Explain the background problem, architectural design decisions, and what was achieved..."
+                value={projectForm.description}
+                onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Status & Category Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Category:</label>
+                <label className="block text-slate-300 font-semibold mb-1">Project Status</label>
                 <select
-                  value={newSkillCategory}
-                  onChange={(e) => setNewSkillCategory(e.target.value as any)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
+                  value={projectForm.status}
+                  onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value as ProjectStatus })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
                 >
-                  <option value="languages">Programming Languages</option>
+                  <option value="completed">Completed (Working Demo/Code)</option>
+                  <option value="in_progress">In Progress (Active Development)</option>
+                  <option value="idea">Early Idea / Research Proposal (No Code Yet)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Category</label>
+                <select
+                  value={projectForm.category}
+                  onChange={(e) => setProjectForm({ ...projectForm, category: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
+                >
                   <option value="ai_ml">AI & Machine Learning</option>
-                  <option value="web_mobile">Web & Mobile</option>
-                  <option value="cloud_devops">Cloud & DevOps</option>
-                  <option value="cybersecurity">Cybersecurity</option>
-                  <option value="dsa">Algorithms & Data Structures</option>
+                  <option value="web_mobile">Full Stack & Web</option>
+                  <option value="systems">Systems & Cloud Infrastructure</option>
+                  <option value="iot">IoT & Embedded Robotics</option>
+                  <option value="cybersecurity">Cybersecurity & Cryptography</option>
+                  <option value="general">General Engineering</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Technologies & Skills */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Technologies Used (Comma-separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Python, PyTorch, Docker"
+                  value={projectForm.technologies}
+                  onChange={(e) => setProjectForm({ ...projectForm, technologies: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Proficiency Level:</label>
-                <select
-                  value={newSkillProficiency}
-                  onChange={(e) => setNewSkillProficiency(e.target.value as any)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
-                >
-                  <option value="beginner">Beginner / Learner</option>
-                  <option value="intermediate">Intermediate / Project-Ready</option>
-                  <option value="advanced">Advanced / Production-Grade</option>
-                </select>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Skills Demonstrated (Comma-separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Deep Learning, API Design"
+                  value={projectForm.skillsDemonstrated}
+                  onChange={(e) => setProjectForm({ ...projectForm, skillsDemonstrated: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                />
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
-              <ShieldCheck className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-              <span>
-                Skills added by students start with <strong>Student-Reported</strong> status. Faculty advisors or external proofs upgrade them to <strong>Verified</strong>.
-              </span>
+            {/* URLs (Optional for ideas) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  GitHub Repository URL {projectForm.status === 'idea' ? '(Optional)' : ''}
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://github.com/user/project"
+                  value={projectForm.githubUrl}
+                  onChange={(e) => setProjectForm({ ...projectForm, githubUrl: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                />
+                {formErrors.githubUrl && <p className="text-[11px] text-red-400 mt-1">{formErrors.githubUrl}</p>}
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Live Demo / Deployed URL (Optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://myproject.demo.app"
+                  value={projectForm.liveUrl}
+                  onChange={(e) => setProjectForm({ ...projectForm, liveUrl: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                />
+                {formErrors.liveUrl && <p className="text-[11px] text-red-400 mt-1">{formErrors.liveUrl}</p>}
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+            {/* Visibility Selector */}
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">Publication Visibility</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value="college_visible"
+                    checked={projectForm.visibility === 'college_visible'}
+                    onChange={() => setProjectForm({ ...projectForm, visibility: 'college_visible' })}
+                    className="text-cyan-400"
+                  />
+                  <span>College-Visible (Discoverable by other students)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value="private"
+                    checked={projectForm.visibility === 'private'}
+                    onChange={() => setProjectForm({ ...projectForm, visibility: 'private' })}
+                    className="text-cyan-400"
+                  />
+                  <span>Private (Only visible to me)</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
               <button
                 type="button"
-                onClick={() => {
-                  setIsAddSkillModalOpen(false);
-                  setSelectedProfileForSkill(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white"
+                onClick={() => setIsPublishModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-wildfire-blue hover:from-cyan-400 hover:to-wildfire-blue-hover text-slate-950 font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(0,229,255,0.3)] transition-all"
               >
-                Submit Skill
+                Publish Project
               </button>
             </div>
           </form>
         </Modal>
       )}
-        </>
+
+      {/* ============================================================ */}
+      {/* MODAL 2: PROJECT DETAIL VIEW                                 */}
+      {/* ============================================================ */}
+      {selectedProjectForDetail && (
+        <Modal
+          isOpen={true}
+          onClose={() => setSelectedProjectForDetail(null)}
+          title={selectedProjectForDetail.title}
+          subtitle={`Published by ${selectedProjectForDetail.ownerName} • ${selectedProjectForDetail.category?.replace(/_/g, ' ').toUpperCase()}`}
+          maxWidth="lg"
+        >
+          <div className="space-y-5 text-xs font-sans">
+            {/* Status & Date */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <div className="flex items-center gap-2">
+                {selectedProjectForDetail.status === 'idea' ? (
+                  <span className="flex items-center gap-1 text-amber-300 font-mono font-bold">
+                    <Lightbulb className="w-4 h-4 text-amber-400" /> Early Idea / Proposal
+                  </span>
+                ) : selectedProjectForDetail.status === 'in_progress' ? (
+                  <span className="text-sky-300 font-mono font-bold">⚡ Active In-Progress Development</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-emerald-300 font-mono font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Completed Project
+                  </span>
+                )}
+              </div>
+              <span className="font-mono text-slate-500">
+                Published: {selectedProjectForDetail.createdAt || 'Recent'}
+              </span>
+            </div>
+
+            {/* Problem Statement & Description */}
+            <div>
+              <h4 className="text-slate-300 font-bold mb-1.5 uppercase font-mono text-[11px] tracking-wider">
+                Overview & Problem Statement
+              </h4>
+              <p className="text-slate-200 leading-relaxed bg-slate-950/60 p-4 rounded-xl border border-slate-800 whitespace-pre-line">
+                {selectedProjectForDetail.description}
+              </p>
+            </div>
+
+            {/* Technologies */}
+            <div>
+              <h4 className="text-slate-300 font-bold mb-1.5 uppercase font-mono text-[11px] tracking-wider">
+                Technologies & Tools
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedProjectForDetail.technologies.map((tech, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/40 text-cyan-300 font-mono text-xs font-semibold"
+                  >
+                    {tech}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Skills Demonstrated */}
+            {selectedProjectForDetail.skillsDemonstrated && selectedProjectForDetail.skillsDemonstrated.length > 0 && (
+              <div>
+                <h4 className="text-slate-300 font-bold mb-1.5 uppercase font-mono text-[11px] tracking-wider">
+                  Demonstrated Competencies
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedProjectForDetail.skillsDemonstrated.map((sk, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-medium"
+                    >
+                      {sk}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* External Links */}
+            <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-800">
+              {selectedProjectForDetail.githubUrl && (
+                <a
+                  href={selectedProjectForDetail.githubUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-mono font-bold text-xs border border-slate-800 transition-colors"
+                >
+                  <Github className="w-4 h-4" />
+                  <span>Open GitHub Repository</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                </a>
+              )}
+
+              {selectedProjectForDetail.liveUrl && (
+                <a
+                  href={selectedProjectForDetail.liveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>View Live Demo</span>
+                </a>
+              )}
+
+              {selectedProjectForDetail.ownerStudentId === currentUserId && (
+                <button
+                  onClick={() => handleDeleteProject(selectedProjectForDetail.id!, selectedProjectForDetail.title)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-mono border border-red-500/30 transition-colors ml-auto"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Unpublish Project</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 3: PUBLIC STUDENT TALENT PROFILE MODAL                 */}
+      {/* ============================================================ */}
+      {selectedStudentForProfile && (
+        <Modal
+          isOpen={true}
+          onClose={() => setSelectedStudentForProfile(null)}
+          title={`${selectedStudentForProfile.studentName}'s Public Talent Profile`}
+          subtitle={`Year ${selectedStudentForProfile.year} • ${selectedStudentForProfile.course}`}
+          maxWidth="lg"
+        >
+          <div className="space-y-5 text-xs font-sans">
+            {/* Bio & Intro */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+              <p className="text-slate-200 leading-relaxed italic">
+                "{selectedStudentForProfile.bio}"
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px] text-slate-400">
+                <span>Semester {selectedStudentForProfile.semester}</span>
+                <span>•</span>
+                <span>GitHub: @{selectedStudentForProfile.githubUsername || 'student'}</span>
+              </div>
+            </div>
+
+            {/* Demonstrated Skills */}
+            <div>
+              <h4 className="text-slate-300 font-bold mb-2 uppercase font-mono text-[11px] tracking-wider">
+                Technical Skills & Proficiency
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {selectedStudentForProfile.primarySkills.map((sk, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="font-semibold text-white">{sk.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 text-slate-400 capitalize">
+                      {sk.proficiency}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Certifications */}
+            {selectedStudentForProfile.certifications.length > 0 && (
+              <div>
+                <h4 className="text-slate-300 font-bold mb-2 uppercase font-mono text-[11px] tracking-wider">
+                  Certifications
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedStudentForProfile.certifications.map((cert, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 flex items-center gap-1.5"
+                    >
+                      <Award className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{cert}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Projects List */}
+            <div>
+              <h4 className="text-slate-300 font-bold mb-2 uppercase font-mono text-[11px] tracking-wider">
+                Published Projects ({selectedStudentForProfile.projects.length})
+              </h4>
+              <div className="space-y-2">
+                {selectedStudentForProfile.projects.map((proj, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between"
+                  >
+                    <div>
+                      <h5 className="font-bold text-white text-xs">{proj.title}</h5>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{proj.description}</p>
+                    </div>
+                    {proj.githubUrl && (
+                      <a
+                        href={proj.githubUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white ml-2 flex-shrink-0"
+                      >
+                        <Github className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Note on Privacy */}
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+              <span>
+                Educational Privacy: Academic marks, exam grades, and fee records are protected and never shown in public talent discovery.
+              </span>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
