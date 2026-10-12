@@ -19,6 +19,7 @@ import { TalentRadarView } from './components/talent/TalentRadarView';
 import { FeeManagementView } from './components/fees/FeeManagementView';
 import { StudentSuccessDashboard } from './components/student-portal/StudentSuccessDashboard';
 import { StudentSuccessIndexView } from './components/ssi/StudentSuccessIndexView';
+import { StartingVideoTour } from './components/common/StartingVideoTour';
 import { VideoTourModal } from './components/common/VideoTourModal';
 import { Student, AIRecommendation } from './types';
 import { GlassCard } from './components/common/GlassCard';
@@ -37,27 +38,30 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Check if 20-second video tutorial tour was already seen or dismissed
-  const [showVideoTour, setShowVideoTour] = useState<boolean>(() => {
+  // Check if initial 20-second starting tour was skipped/completed in this browser session
+  const [hasCompletedStartingTour, setHasCompletedStartingTour] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
-      return !localStorage.getItem('student_analytics_tour_seen');
+      return sessionStorage.getItem('student_analytics_tour_seen') === 'true';
     } catch {
       return false;
     }
   });
 
-  const handleCloseVideoTour = () => {
+  // Modal tour state for replay button
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState<boolean>(false);
+
+  const handleSkipStartingTour = () => {
     try {
-      localStorage.setItem('student_analytics_tour_seen', 'true');
+      sessionStorage.setItem('student_analytics_tour_seen', 'true');
     } catch {
       // ignore
     }
-    setShowVideoTour(false);
+    setHasCompletedStartingTour(true);
   };
 
-  const handleOpenVideoTour = () => {
-    setShowVideoTour(true);
+  const handleOpenVideoModal = () => {
+    setIsVideoModalOpen(true);
   };
 
   const handleSelectStudent = (student: Student) => {
@@ -66,7 +70,12 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 1. Initial auth recovery loading state
+  // 1. FIRST SCREEN: 20-Second Tutorial Video at the starting of our website!
+  if (!hasCompletedStartingTour) {
+    return <StartingVideoTour onSkip={handleSkipStartingTour} />;
+  }
+
+  // 2. Initial auth recovery loading state
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen w-full bg-[#050814] flex flex-col items-center justify-center text-slate-200">
@@ -82,14 +91,14 @@ export const App: React.FC = () => {
     );
   }
 
-  // 2. Unauthenticated: Render Login / Register page with VideoTourModal
+  // 3. Unauthenticated: Render Login / Register page with VideoTourModal replay
   if (!user) {
     return (
       <>
-        <AuthPage onOpenVideoTour={handleOpenVideoTour} />
+        <AuthPage onOpenVideoTour={handleOpenVideoModal} />
         <VideoTourModal
-          isOpen={showVideoTour}
-          onClose={handleCloseVideoTour}
+          isOpen={isVideoModalOpen}
+          onClose={() => setIsVideoModalOpen(false)}
         />
       </>
     );
@@ -98,13 +107,13 @@ export const App: React.FC = () => {
   // Fallback student if user navigates directly to profile tab without selecting one
   const activeProfileStudent = selectedStudent || students[0] || null;
 
-  // 3. Authenticated: Render dashboard application shell
+  // 4. Authenticated: Render dashboard application shell with VideoTourModal replay
   return (
     <>
       <AppLayout
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
-        onOpenVideoTour={handleOpenVideoTour}
+        onOpenVideoTour={handleOpenVideoModal}
       >
         {currentTab === 'dashboard' && (
         <DashboardOverview
@@ -200,8 +209,8 @@ export const App: React.FC = () => {
       {currentTab === 'settings' && <SettingsView />}
     </AppLayout>
     <VideoTourModal
-      isOpen={showVideoTour}
-      onClose={handleCloseVideoTour}
+      isOpen={isVideoModalOpen}
+      onClose={() => setIsVideoModalOpen(false)}
     />
   </>
   );
