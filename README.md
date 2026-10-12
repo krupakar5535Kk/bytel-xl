@@ -2,13 +2,35 @@
 
 [![Live Application](https://img.shields.io/badge/Live_App-student--analytics--website.vercel.app-00e5ff?style=for-the-badge&logo=vercel)](https://student-analytics-website.vercel.app)
 [![API Status](https://img.shields.io/badge/Backend_API-Render_Live_UP-8b5cf6?style=for-the-badge&logo=render)](https://student-analytics-t77k.onrender.com/api/v1/health)
+[![Java 21](https://img.shields.io/badge/Backend-Java_21_Spring_Boot_3-f97316?style=for-the-badge&logo=openjdk)](https://spring.io)
+[![TypeScript](https://img.shields.io/badge/Frontend-React_18_TypeScript-3178c6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
 [![Database](https://img.shields.io/badge/Database-Supabase_PostgreSQL-38bdf8?style=for-the-badge&logo=supabase)](https://supabase.com)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
 > 🚀 **Public Live Showcase Links**:
-> - **Live Web Platform**: [https://student-analytics-website.vercel.app](https://student-analytics-website.vercel.app)
-> - **Production Backend API**: [https://student-analytics-t77k.onrender.com/api/v1/health](https://student-analytics-t77k.onrender.com/api/v1/health)
-> - **Source Code Repository**: [https://github.com/krupakar5535Kk/bytel-xl](https://github.com/krupakar5535Kk/bytel-xl)
+> - 🌐 **Live Web Platform**: [https://student-analytics-website.vercel.app](https://student-analytics-website.vercel.app)
+> - ⚡ **Production Backend API**: [https://student-analytics-t77k.onrender.com/api/v1/health](https://student-analytics-t77k.onrender.com/api/v1/health)
+> - 📦 **Source Code Repository**: [https://github.com/krupakar5535Kk/bytel-xl](https://github.com/krupakar5535Kk/bytel-xl)
+
+---
+
+## 🏆 Hackathon Quick Judge Evaluation Guide (2-Minute Walkthrough)
+
+To quickly evaluate the core engineering and design of **Student Analytics**, follow these 4 steps on the [Live App](https://student-analytics-website.vercel.app):
+
+1. **Student Success Index (SSI) (New Sidebar Option)**:
+   - Click **Student Success Index** in the left sidebar navigation.
+   - Click the **"Alex Johnson (60% Benchmark)"** quick preset button.
+   - Click **"Calculate Success Index"**: instantly computes the 4-factor average (60%), displays the highest factor (Attendance 70%), lowest factor (Skills Rate 50%), and dynamically generates targeted improvement recommendations.
+2. **Talent Radar — Project Discovery & Likes (`❤️`)**:
+   - Click **Talent Radar** in the sidebar.
+   - Try the interactive **Like button (`❤️`)** on any project in the *Explore Projects & Ideas* feed.
+   - Use the **Search Bar**: type *"Alex"*, *"Priya"*, or *"Python"* to see the real-time match banner with 1-click tab switching.
+   - Click any student card to open their **Public Talent Profile** and view/like their published projects.
+3. **Academic Risk Analytics & Early Intervention**:
+   - Navigate to **Risk Analytics** or **Student Directory** to view deterministic multi-factor risk scores (0–100), automated trajectory velocity, and explainable breakdowns.
+4. **Dual-Mode System (Demo vs Live API)**:
+   - In the top header bar, toggle between **Demo Mode** (instant coherent dataset) and **Live Mode** (connected directly to the Spring Boot REST API on Render).
 
 ---
 
@@ -43,6 +65,8 @@ bytel xl/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── layout/           # AmbientBackground, Sidebar, TopNavigation, WildfireLogo, AppLayout
+│   │   │   ├── ssi/              # StudentSuccessIndexView (Dedicated 5-factor progress calculator)
+│   │   │   ├── talent/           # TalentRadarView (Project Discovery, Student Search, Social Likes), StudentPortfolioEditor
 │   │   │   ├── dashboard/        # PerformanceTrendChart, AttendanceTrendChart, SubjectPerformanceChart,
 │   │   │   │                     # RiskDistributionChart, AttendanceVsMarksChart, InterventionOutcomesChart,
 │   │   │   │                     # AttentionTable, ActivityFeed, DashboardOverview
@@ -56,11 +80,11 @@ bytel xl/
 │   │   │   ├── reports/          # ReportsView
 │   │   │   ├── settings/         # SettingsView
 │   │   │   └── common/           # GlassCard, RiskBadge, TrendIndicator, MetricKpi, Modal, ToastContainer
-│   │   ├── context/              # AppContext (Dual-Mode Demo/Live, state management)
+│   │   ├── context/              # AppContext (Dual-Mode Demo/Live, state management), AuthContext
 │   │   ├── data/                 # Demo cohort with mathematically consistent metrics
 │   │   ├── services/             # Centralized API service layer (Dual-Mode Spring Boot / Demo)
-│   │   ├── types/                # Strict TypeScript contracts
-│   │   └── utils/                # Risk engine, formatters, CSV import/export
+│   │   ├── types/                # Strict TypeScript contracts (StudentProject, TalentProfile, SSI)
+│   │   └── utils/                # Risk engine, SSI engine, formatters, CSV import/export
 │   ├── package.json
 │   ├── tailwind.config.js
 │   ├── tsconfig.json
@@ -70,11 +94,11 @@ bytel xl/
 │   ├── src/main/java/com/wildfire/
 │   │   ├── WildfireApplication.java
 │   │   ├── ai/                   # OpenAiClientService (data minimization, fallback)
-│   │   ├── analytics/            # RiskEngine (0-100 weighted calculation)
+│   │   ├── analytics/            # RiskEngine (0-100 weighted calculation), StudentSuccessIndexEngine
 │   │   ├── config/               # CorsConfig, DataInitializer (seeds demo dataset)
-│   │   ├── controller/           # HealthController, StudentController, DashboardController,
+│   │   ├── controller/           # HealthController, StudentController, DashboardController, SsiController,
 │   │   │                         # InterventionController, RiskController, AiController, SettingsController
-│   │   ├── dto/                  # StudentDto, AssessmentDto, InterventionDto, RiskAssessmentDto, AIInsightResponse
+│   │   ├── dto/                  # StudentDto, AssessmentDto, InterventionDto, SsiRequest, SsiResponse, AIInsightResponse
 │   │   ├── entity/               # StudentEntity, AssessmentEntity, AttendanceEntity, AssignmentEntity, InterventionEntity, AuditLogEntity
 │   │   ├── exception/            # GlobalExceptionHandler, ResourceNotFoundException, BadRequestException
 │   │   ├── repository/           # Spring Data JPA repositories
@@ -84,6 +108,7 @@ bytel xl/
 │   │   └── application-prod.yml  # PostgreSQL production config for Render
 │   ├── src/test/java/com/wildfire/
 │   │   ├── RiskEngineTest.java   # Unit tests for risk math and normalization
+│   │   ├── StudentSuccessIndexEngineTest.java # Unit tests for SSI calculation & Alex Johnson benchmark
 │   │   └── WildfireApplicationTests.java # Context loading verification
 │   ├── pom.xml
 │   └── Dockerfile                # Multi-stage production container
@@ -123,7 +148,49 @@ $$\text{Risk Score} = \frac{\sum_{i} W_i \times S_i}{\sum_i W_i}$$
 
 ---
 
-## 5. Dual Mode: Demo Mode vs Live Mode
+## 5. Student Success Index (SSI) — Manual Progress Calculator
+
+The **Student Success Index (SSI)** measures current overall student progress across four equal-weighted foundational factors (25% each):
+
+$$\text{Student Success Index} = \frac{\text{Academic Performance} + \text{Attendance} + \text{Skills Rate} + \text{Placement Readiness}}{4}$$
+
+### Core Features:
+- **Dedicated Sidebar Route**: Accessible via its own separate navigation tab with a custom gauge/analytics icon.
+- **Clean 5-Field Input Form**:
+  1. Student Full Name (e.g. *Alex Johnson*)
+  2. Academic Performance (%)
+  3. Attendance (%)
+  4. Skills Rate (%)
+  5. Placement Readiness (%)
+- **Benchmark Test Example**:
+  - Academic: 60% | Attendance: 70% | Skills Rate: 50% | Placement: 60%
+  - Calculation: $(60 + 70 + 50 + 60) / 4 = \mathbf{60\%}$
+  - **Dynamic Highest Factor**: Attendance (70%)
+  - **Dynamic Lowest Factor**: Skills Rate (50%)
+  - **Dynamic Actionable Recommendation**: Tailored advice highlighting portfolio evidence, assessments, and practical projects.
+- **Zero Hallucination / Ethical Disclaimer**: Clearly labeled as a weighted progress indicator based on user-entered values, not a guaranteed probability of academic or employment outcomes.
+
+---
+
+## 6. Talent Radar — Student Project Discovery & Social Like System
+
+**Talent Radar** empowers students across all 4 academic years to showcase open-source engineering repositories, active prototypes, and research ideas:
+
+### Key Highlights:
+1. **Interactive Like System (`❤️`)**:
+   - Every student can browse peer projects and ideas and give/remove likes.
+   - Live counter updates across the project cards, the detail view, and student profile modals.
+   - Optimistic state updates with toast feedback (`"Project Liked! ❤️"` / `"Like Removed"`).
+2. **Instant Multi-Field Search**:
+   - Search across student names, IDs, courses, technical skills, and repository titles.
+   - Shows an instant **Search Match Banner** with 1-click pills to jump between student matches and project matches.
+3. **Public Talent Profiles**:
+   - Inspect any student's public engineering portfolio, demonstrated competencies (faculty vs independently verified), problem-solving stats (LeetCode), and published projects.
+   - Strictly protects educational privacy (exam scores and financial records are never exposed).
+
+---
+
+## 7. Dual Mode: Demo Mode vs Live Mode
 
 To ensure full transparency and avoid fake functionality:
 - **Demo Mode**: Loads a coherent cohort of 8 fictional engineering students (Aarav Sharma, Maya Patel, Liam Chen, Elena Rostova, Marcus Vance, Ananya Iyer, David Kim, Zainab Al-Mansoor). Every student's marks, attendance, overdue assignments, risk score, and interventions match mathematically.
@@ -132,7 +199,7 @@ To ensure full transparency and avoid fake functionality:
 
 ---
 
-## 6. How to Run Locally
+## 8. How to Run Locally
 
 ### Prerequisites:
 - **Node.js** (v18+)
@@ -156,12 +223,13 @@ npm run dev
 
 ---
 
-## 7. REST API Endpoints
+## 9. REST API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/v1/health` | Service uptime and database connection status |
 | `GET` | `/api/v1/dashboard/summary` | Institutional metrics (KPIs, risk counts, averages) |
+| `POST` | `/api/v1/ssi/calculate` | Compute 4-factor Student Success Index (SSI) |
 | `GET` | `/api/v1/students` | List all students with search and filters |
 | `GET` | `/api/v1/students/{id}` | Individual student detailed profile |
 | `POST` | `/api/v1/students` | Register new student with validated telemetry |
@@ -180,7 +248,7 @@ npm run dev
 
 ---
 
-## 8. Deployment Guide
+## 10. Deployment Guide
 
 ### Frontend Deployment (Vercel):
 1. Connect Git repository to [Vercel](https://vercel.com).
@@ -204,7 +272,7 @@ npm run dev
 
 ---
 
-## 9. Ethical & Responsible AI Principles
+## 11. Ethical & Responsible AI Principles
 
 1. **Human-In-The-Loop**: AI outputs are strictly advisory. No student is penalized, tracked, or rescheduled automatically without human faculty confirmation.
 2. **Data Minimization**: Prompts exclude unnecessary PII (student names, addresses). Only standardized academic metrics (attendance %, subject marks, trajectory) are processed.
