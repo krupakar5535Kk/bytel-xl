@@ -49,19 +49,19 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-center gap-2.5 pb-3 border-b border-slate-800">
             <Database className="w-5 h-5 text-wildfire-blue" />
             <div>
-              <h4 className="text-sm font-bold text-white">Data Mode & Persistence</h4>
-              <p className="text-xs text-slate-400">Switch between demo cohort and persistent Spring Boot database</p>
+              <h4 className="text-sm font-bold text-white">Database Architecture & Sync</h4>
+              <p className="text-xs text-slate-400">Supabase Cloud Database & Spring Boot REST API integration</p>
             </div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs font-bold text-white">Live Backend Mode</div>
+                <div className="text-xs font-bold text-white">Data Persistence Engine</div>
                 <div className="text-[11px] text-slate-400">
                   {isLiveMode
-                    ? 'Fetching live records from Spring Boot PostgreSQL API'
-                    : 'Serving demonstration dataset with internally verified metrics'}
+                    ? 'Connected directly to Spring Boot backend services'
+                    : 'Operating directly against Supabase Cloud PostgreSQL with Row Level Security'}
                 </div>
               </div>
               <button
@@ -72,7 +72,7 @@ export const SettingsView: React.FC = () => {
                     : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                 }`}
               >
-                {isLiveMode ? 'LIVE API ACTIVE' : 'DEMO MODE ACTIVE'}
+                {isLiveMode ? 'SPRING BOOT API' : 'SUPABASE RLS ACTIVE'}
               </button>
             </div>
           </div>

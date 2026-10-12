@@ -16,9 +16,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose 
   const [isProcessing, setIsProcessing] = useState(false);
 
   const sampleCsv = `Student ID,Full Name,Course,Semester,Attendance %,Average Score %,Performance Trend,Advisor,Email
-WF-2026-109,Kavita Sen,B.Tech Computer Science,4,84.5,72.0,stable,Dr. Sarah Jenkins,kavita.sen@wildfire.edu
-WF-2026-110,Dev Patel,B.Tech Data Science,4,66.0,51.0,declining,Dr. Robert Miller,dev.patel@wildfire.edu
-WF-2026-111,Lucas Silva,B.Tech Artificial Intelligence,4,95.0,89.5,improving,Prof. Alan Vance,lucas.silva@wildfire.edu`;
+STU-101,Alex Morgan,B.Tech Computer Science,1,92.0,85.0,improving,Academic Advisor,alex.morgan@institution.edu
+STU-102,Taylor Reed,B.Tech Data Science,2,78.5,68.0,stable,Academic Advisor,taylor.reed@institution.edu`;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

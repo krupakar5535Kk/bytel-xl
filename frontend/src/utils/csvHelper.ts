@@ -41,7 +41,47 @@ export function exportStudentsToCsv(students: Student[]): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `wildfire_students_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `student_analytics_students_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+export function exportInterventionsToCsv(interventions: any[]): void {
+  const headers = [
+    'Case ID',
+    'Student ID',
+    'Student Name',
+    'Category',
+    'Title',
+    'Status',
+    'Assigned To',
+    'Target Review Date',
+    'Pre-Attendance %',
+    'Pre-Score %',
+    'Reason',
+  ];
+
+  const rows = interventions.map((i) => [
+    `"${i.id}"`,
+    `"${i.studentId}"`,
+    `"${(i.studentName || '').replace(/"/g, '""')}"`,
+    `"${i.category}"`,
+    `"${(i.title || '').replace(/"/g, '""')}"`,
+    `"${i.status}"`,
+    `"${(i.assignedTo || '').replace(/"/g, '""')}"`,
+    `"${i.targetReviewDate || ''}"`,
+    i.preMetric?.attendanceRate ?? 'N/A',
+    i.preMetric?.averageScore ?? 'N/A',
+    `"${(i.reason || '').replace(/"/g, '""')}"`,
+  ]);
+
+  const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `student_analytics_interventions_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

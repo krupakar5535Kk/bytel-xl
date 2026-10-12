@@ -99,34 +99,42 @@ export const RiskAnalyticsView: React.FC<RiskAnalyticsViewProps> = ({ onSelectSt
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-sans">
-                  {students.map((s) => (
-                    <tr
-                      key={s.id}
-                      onClick={() => onSelectStudent(s)}
-                      className="hover:bg-slate-800/40 transition-colors cursor-pointer group"
-                    >
-                      <td className="py-2.5 px-3">
-                        <div className="font-semibold text-white group-hover:text-wildfire-blue transition-colors">
-                          {s.name}
-                        </div>
-                        <div className="text-[10px] font-mono text-slate-400">{s.id}</div>
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-300">{s.course}</td>
-                      <td className="py-2.5 px-3 font-mono">{s.attendanceRate.toFixed(1)}%</td>
-                      <td className="py-2.5 px-3 font-mono">{s.averageScore.toFixed(1)}%</td>
-                      <td className="py-2.5 px-3">
-                        <TrendIndicator trend={s.trend} />
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <RiskBadge level={s.riskLevel} score={s.riskScore} />
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <button className="p-1 rounded-lg text-slate-400 hover:text-white">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
+                  {students.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                        No student records registered in database yet. Add students to compute automated risk telemetry.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    students.map((s) => (
+                      <tr
+                        key={s.id}
+                        onClick={() => onSelectStudent(s)}
+                        className="hover:bg-slate-800/40 transition-colors cursor-pointer group"
+                      >
+                        <td className="py-2.5 px-3">
+                          <div className="font-semibold text-white group-hover:text-wildfire-blue transition-colors">
+                            {s.name}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400">{s.id}</div>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-300">{s.course}</td>
+                        <td className="py-2.5 px-3 font-mono">{s.attendanceRate.toFixed(1)}%</td>
+                        <td className="py-2.5 px-3 font-mono">{s.averageScore.toFixed(1)}%</td>
+                        <td className="py-2.5 px-3">
+                          <TrendIndicator trend={s.trend} />
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <RiskBadge level={s.riskLevel} score={s.riskScore} />
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <button className="p-1 rounded-lg text-slate-400 hover:text-white">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

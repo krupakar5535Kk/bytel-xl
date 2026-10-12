@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { GlassCard } from '../common/GlassCard';
 import { useApp } from '../../context/AppContext';
-import { FileText, Download, Printer, Filter, ShieldAlert, Users, Award, CalendarCheck } from 'lucide-react';
-import { exportStudentsToCsv } from '../../utils/csvHelper';
+import { FileText, Download, Printer, Filter, ShieldAlert, Users, Award, CalendarCheck, LifeBuoy } from 'lucide-react';
+import { exportStudentsToCsv, exportInterventionsToCsv } from '../../utils/csvHelper';
 import { RiskBadge } from '../common/RiskBadge';
 import { TrendIndicator } from '../common/TrendIndicator';
 import { formatDate } from '../../utils/formatters';
@@ -11,17 +11,20 @@ export const ReportsView: React.FC = () => {
   const { students, interventions, activeTerm } = useApp();
 
   const [courseFilter, setCourseFilter] = useState('all');
+  const [yearFilter, setYearFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
   const [minAttendance, setMinAttendance] = useState(0);
   const [minScore, setMinScore] = useState(0);
 
   // Filter students based on all selected parameters
   const filtered = students.filter((s) => {
+    const studentYear = s.year || Math.ceil((s.semester || 1) / 2);
+    const matchesYear = yearFilter === 'all' || studentYear.toString() === yearFilter;
     const matchesCourse = courseFilter === 'all' || s.course === courseFilter;
     const matchesRisk = riskFilter === 'all' || s.riskLevel === riskFilter;
     const matchesAttendance = s.attendanceRate >= minAttendance;
     const matchesScore = s.averageScore >= minScore;
-    return matchesCourse && matchesRisk && matchesAttendance && matchesScore;
+    return matchesYear && matchesCourse && matchesRisk && matchesAttendance && matchesScore;
   });
 
   // Calculate filtered stats
@@ -49,13 +52,21 @@ export const ReportsView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition-all"
           >
             <Printer className="w-4 h-4 text-slate-300" />
             <span>Print Report</span>
+          </button>
+
+          <button
+            onClick={() => exportInterventionsToCsv(interventions)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition-all"
+          >
+            <LifeBuoy className="w-4 h-4 text-emerald-400" />
+            <span>Export Cases CSV</span>
           </button>
 
           <button
@@ -75,7 +86,22 @@ export const ReportsView: React.FC = () => {
           <span>Interactive Audit Filters</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-slate-400 mb-1">Academic Year</label>
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-wildfire-blue"
+            >
+              <option value="all">All 4 Years</option>
+              <option value="1">1st Year (Sem 1-2)</option>
+              <option value="2">2nd Year (Sem 3-4)</option>
+              <option value="3">3rd Year (Sem 5-6)</option>
+              <option value="4">4th Year (Sem 7-8)</option>
+            </select>
+          </div>
+
           <div>
             <label className="block text-slate-400 mb-1">Course / Department</label>
             <select
@@ -184,22 +210,30 @@ export const ReportsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-sans">
-              {filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-wildfire-blue">{s.id}</td>
-                  <td className="py-3 px-4 font-semibold text-white">{s.name}</td>
-                  <td className="py-3 px-4 text-slate-300">{s.course}</td>
-                  <td className="py-3 px-4 font-mono">{s.attendanceRate.toFixed(1)}%</td>
-                  <td className="py-3 px-4 font-mono">{s.averageScore.toFixed(1)}%</td>
-                  <td className="py-3 px-4">
-                    <TrendIndicator trend={s.trend} />
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                    No student records match the active report filters.
                   </td>
-                  <td className="py-3 px-4">
-                    <RiskBadge level={s.riskLevel} score={s.riskScore} />
-                  </td>
-                  <td className="py-3 px-4 text-slate-400">{s.advisor}</td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-mono font-bold text-wildfire-blue">{s.id}</td>
+                    <td className="py-3 px-4 font-semibold text-white">{s.name}</td>
+                    <td className="py-3 px-4 text-slate-300">{s.course}</td>
+                    <td className="py-3 px-4 font-mono">{s.attendanceRate.toFixed(1)}%</td>
+                    <td className="py-3 px-4 font-mono">{s.averageScore.toFixed(1)}%</td>
+                    <td className="py-3 px-4">
+                      <TrendIndicator trend={s.trend} />
+                    </td>
+                    <td className="py-3 px-4">
+                      <RiskBadge level={s.riskLevel} score={s.riskScore} />
+                    </td>
+                    <td className="py-3 px-4 text-slate-400">{s.advisor}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

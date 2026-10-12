@@ -17,9 +17,10 @@ import { LifeBuoy, Plus, CheckCircle2, Clock } from 'lucide-react';
 interface StudentProfileProps {
   student: Student;
   onBack: () => void;
+  onNavigateToAITutor?: (student: Student, plan: AIRecommendation) => void;
 }
 
-export const StudentProfile: React.FC<StudentProfileProps> = ({ student, onBack }) => {
+export const StudentProfile: React.FC<StudentProfileProps> = ({ student, onBack, onNavigateToAITutor }) => {
   const { isLiveMode, updateStudent, addIntervention, interventions, riskWeights, showToast } = useApp();
 
   const [activeTab, setActiveTab] = useState<'academic' | 'attendance' | 'risk' | 'ai' | 'interventions'>('academic');
@@ -82,6 +83,30 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, onBack 
       showToast('error', 'AI Generation Failed', err.message);
     } finally {
       setIsAiLoading(false);
+    }
+  };
+
+  const handleApproveGroundPlan = async (rec: AIRecommendation) => {
+    try {
+      await addIntervention({
+        studentId: student.id,
+        studentName: student.name,
+        category: 'study_planning',
+        title: `AI Ground Plan: ${student.name} Personalized Roadmap`,
+        reason: rec.summary,
+        evidence: rec.evidence.join(' | '),
+        actionItems: [...rec.studyRecommendations, ...rec.teacherActions],
+        assignedTo: student.advisor || 'Academic Advisor',
+        status: 'active',
+        targetReviewDate: new Date(Date.now() + (rec.suggestedReviewDays || 14) * 86400000).toISOString().slice(0, 10),
+        preMetric: {
+          attendanceRate: student.attendanceRate,
+          averageScore: student.averageScore,
+        },
+      });
+      showToast('success', 'Ground Plan Saved', 'Pedagogical improvement plan officially logged to Interventions.');
+    } catch (err: any) {
+      showToast('error', 'Failed to Save Plan', err.message);
     }
   };
 
@@ -222,6 +247,12 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, onBack 
           recommendation={aiRecommendation}
           isLoading={isAiLoading}
           onRequestGenerate={handleRequestAI}
+          onApproveAndSave={handleApproveGroundPlan}
+          onOpenInAITutor={(rec) => {
+            if (onNavigateToAITutor) {
+              onNavigateToAITutor(student, rec);
+            }
+          }}
         />
       )}
 

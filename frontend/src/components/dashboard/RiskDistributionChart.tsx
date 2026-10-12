@@ -31,61 +31,73 @@ export const RiskDistributionChart: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 w-full min-h-0 flex items-center justify-center">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#0a1224',
-                borderColor: '#1e293b',
-                borderRadius: '0.75rem',
-                color: '#fff',
-                fontSize: '12px',
-              }}
-              formatter={(value: any, name: string) => [
-                `${value} Students (${summary.totalStudents > 0 ? Math.round(((value as number) / summary.totalStudents) * 100) : 0}%)`,
-                name,
-              ]}
-            />
-            <Pie
-              data={data}
-              innerRadius={55}
-              outerRadius={85}
-              paddingAngle={5}
-              dataKey="value"
-            >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} stroke="#030712" strokeWidth={2} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+      {summary.totalStudents === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-slate-400 text-xs">
+          <ShieldAlert className="w-8 h-8 text-slate-600 mb-2" />
+          <p className="font-semibold text-slate-300">No risk classifications calculated</p>
+          <span className="text-[11px] text-slate-500 mt-1 max-w-xs">
+            Algorithmic risk breakdown will display once student records are registered in your database.
+          </span>
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 w-full min-h-0 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0a1224',
+                    borderColor: '#1e293b',
+                    borderRadius: '0.75rem',
+                    color: '#fff',
+                    fontSize: '12px',
+                  }}
+                  formatter={(value: any, name: string) => [
+                    `${value} Students (${summary.totalStudents > 0 ? Math.round(((value as number) / summary.totalStudents) * 100) : 0}%)`,
+                    name,
+                  ]}
+                />
+                <Pie
+                  data={data}
+                  innerRadius={55}
+                  outerRadius={85}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="#030712" strokeWidth={2} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
-      {/* Legend */}
-      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-center">
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-red-400" />
-            <span>High</span>
+          {/* Legend */}
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-center">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-red-400" />
+                <span>High</span>
+              </div>
+              <span className="text-sm font-mono font-bold text-red-400">{summary.highRiskCount}</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Moderate</span>
+              </div>
+              <span className="text-sm font-mono font-bold text-amber-400">{summary.moderateRiskCount}</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>Low</span>
+              </div>
+              <span className="text-sm font-mono font-bold text-emerald-400">{summary.lowRiskCount}</span>
+            </div>
           </div>
-          <span className="text-sm font-mono font-bold text-red-400">{summary.highRiskCount}</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <span>Moderate</span>
-          </div>
-          <span className="text-sm font-mono font-bold text-amber-400">{summary.moderateRiskCount}</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Low</span>
-          </div>
-          <span className="text-sm font-mono font-bold text-emerald-400">{summary.lowRiskCount}</span>
-        </div>
-      </div>
+        </>
+      )}
     </GlassCard>
   );
 };

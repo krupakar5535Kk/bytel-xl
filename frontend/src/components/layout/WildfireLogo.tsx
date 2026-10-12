@@ -75,15 +75,15 @@ export const WildfireLogo: React.FC<LogoProps> = ({ collapsed = false, size = 'm
       {!collapsed && (
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="font-extrabold tracking-wider text-white text-lg font-mono">
-              WILD<span className="text-wildfire-blue font-bold">FIRE</span>
+            <span className="font-extrabold tracking-tight text-white text-base font-mono">
+              Student<span className="text-wildfire-blue font-bold">Analytics</span>
             </span>
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-wildfire-blue/15 text-wildfire-blue border border-wildfire-blue/30 font-semibold tracking-wider">
-              AI 2.0
+              AI
             </span>
           </div>
           <span className="text-[10px] text-slate-400 font-medium tracking-tight">
-            Student Analytics & Success
+            Academic Success & Talent Intelligence
           </span>
         </div>
       )}

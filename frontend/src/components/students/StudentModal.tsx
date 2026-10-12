@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Student, PerformanceTrend } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface StudentModalProps {
   isOpen: boolean;
@@ -15,15 +16,17 @@ export const StudentModal: React.FC<StudentModalProps> = ({
   studentToEdit,
 }) => {
   const { addStudent, updateStudent, students } = useApp();
+  const { userProfile } = useAuth();
+  const defaultAdvisor = userProfile?.fullName || 'Academic Advisor';
 
   const [id, setId] = useState('');
   const [name, setName] = useState('');
   const [course, setCourse] = useState('B.Tech Computer Science');
-  const [semester, setSemester] = useState(4);
-  const [attendanceRate, setAttendanceRate] = useState(85.0);
-  const [averageScore, setAverageScore] = useState(75.0);
+  const [semester, setSemester] = useState(1);
+  const [attendanceRate, setAttendanceRate] = useState(100.0);
+  const [averageScore, setAverageScore] = useState(0.0);
   const [trend, setTrend] = useState<PerformanceTrend>('stable');
-  const [advisor, setAdvisor] = useState('Dr. Sarah Jenkins');
+  const [advisor, setAdvisor] = useState(defaultAdvisor);
   const [email, setEmail] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,33 +43,29 @@ export const StudentModal: React.FC<StudentModalProps> = ({
       setAdvisor(studentToEdit.advisor);
       setEmail(studentToEdit.email);
     } else {
-      // Defaults for new student
-      const nextNum = 100 + students.length + 1;
-      setId(`WF-2026-${nextNum}`);
+      // Clean defaults for real new student
+      setId('');
       setName('');
       setCourse('B.Tech Computer Science');
-      setSemester(4);
-      setAttendanceRate(82.0);
-      setAverageScore(70.0);
+      setSemester(1);
+      setAttendanceRate(100.0);
+      setAverageScore(0.0);
       setTrend('stable');
-      setAdvisor('Dr. Sarah Jenkins');
+      setAdvisor(defaultAdvisor);
       setEmail('');
     }
     setErrorMsg(null);
-  }, [studentToEdit, isOpen, students.length]);
+  }, [studentToEdit, isOpen, defaultAdvisor]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
     // Validation
-    if (!id.trim()) {
-      setErrorMsg('Student ID is required');
-      return;
-    }
+    const cleanId = id.trim() || `STU-${Date.now().toString().slice(-6)}`;
 
-    if (!studentToEdit && students.some((s) => s.id.toLowerCase() === id.trim().toLowerCase())) {
-      setErrorMsg(`Student ID "${id}" is already registered. Unique ID is required.`);
+    if (!studentToEdit && id.trim() && students.some((s) => s.id.toLowerCase() === id.trim().toLowerCase())) {
+      setErrorMsg(`Student ID "${id.trim()}" is already registered. Unique ID is required.`);
       return;
     }
 
@@ -89,26 +88,26 @@ export const StudentModal: React.FC<StudentModalProps> = ({
     try {
       if (studentToEdit) {
         await updateStudent(studentToEdit.id, {
-          name,
+          name: name.trim(),
           course,
           semester,
           attendanceRate,
           averageScore,
           trend,
-          advisor,
-          email: email || `${id.toLowerCase()}@wildfire.edu`,
+          advisor: advisor.trim() || defaultAdvisor,
+          email: email.trim() || '',
         });
       } else {
         await addStudent({
-          id,
-          name,
+          id: cleanId,
+          name: name.trim(),
           course,
           semester,
           attendanceRate,
           averageScore,
           trend,
-          advisor,
-          email: email || `${id.toLowerCase()}@wildfire.edu`,
+          advisor: advisor.trim() || defaultAdvisor,
+          email: email.trim() || '',
           enrollmentDate: new Date().toISOString().slice(0, 10),
           status: 'active',
         });
@@ -146,7 +145,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
               value={id}
               onChange={(e) => setId(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-wildfire-blue focus:outline-none disabled:opacity-50"
-              placeholder="e.g. WF-2026-109"
+              placeholder="e.g. STU-2026-001 or Roll Number"
             />
           </div>
 
@@ -158,7 +157,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-wildfire-blue focus:outline-none"
-              placeholder="e.g. Vikram Malhotra"
+              placeholder="e.g. Jordan Hayes"
             />
           </div>
         </div>
@@ -253,7 +252,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-wildfire-blue focus:outline-none"
-              placeholder="Defaults to id@wildfire.edu"
+              placeholder="e.g. student@institution.edu (optional)"
             />
           </div>
         </div>

@@ -18,14 +18,14 @@ export const InterventionCenter: React.FC<InterventionCenterProps> = ({ onSelect
   const [selectedIntervention, setSelectedIntervention] = useState<Intervention | null>(null);
 
   // New intervention form state
-  const [studentId, setStudentId] = useState(students[0]?.id || 'WF-2026-101');
+  const [studentId, setStudentId] = useState(students[0]?.id || '');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<Intervention['category']>('attendance_support');
   const [reason, setReason] = useState('');
   const [evidence, setEvidence] = useState('');
   const [actionItems, setActionItems] = useState('');
-  const [assignedTo, setAssignedTo] = useState('Dr. Sarah Jenkins');
-  const [reviewDate, setReviewDate] = useState('2026-10-31');
+  const [assignedTo, setAssignedTo] = useState('Academic Advisor');
+  const [reviewDate, setReviewDate] = useState(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
 
   // Follow-up observation update state
   const [followUpNotes, setFollowUpNotes] = useState('');

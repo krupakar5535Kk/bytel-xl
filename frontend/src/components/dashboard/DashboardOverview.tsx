@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { MetricKpi } from '../common/MetricKpi';
 import { 
@@ -9,7 +9,8 @@ import {
   ShieldAlert, 
   LifeBuoy, 
   TrendingUp,
-  Sparkles
+  Sparkles,
+  UserPlus
 } from 'lucide-react';
 import { PerformanceTrendChart } from './PerformanceTrendChart';
 import { AttendanceTrendChart } from './AttendanceTrendChart';
@@ -19,6 +20,7 @@ import { AttendanceVsMarksChart } from './AttendanceVsMarksChart';
 import { InterventionOutcomesChart } from './InterventionOutcomesChart';
 import { AttentionTable } from './AttentionTable';
 import { ActivityFeed } from './ActivityFeed';
+import { StudentModal } from '../students/StudentModal';
 import { Student } from '../../types';
 
 interface DashboardOverviewProps {
@@ -33,6 +35,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onNavigateToInterventions,
 }) => {
   const { summary, activeTerm, isLiveMode, backendStatus } = useApp();
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -61,10 +64,38 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
             }`}
           >
-            {isLiveMode ? `SPRING BOOT LIVE (${backendStatus.toUpperCase()})` : 'INTERNAL DEMO DATASET'}
+            {isLiveMode ? `SPRING BOOT API (${backendStatus.toUpperCase()})` : 'SUPABASE CLOUD DATABASE'}
           </span>
         </div>
       </div>
+
+      {/* Onboarding Welcome Banner when zero students exist */}
+      {summary.totalStudents === 0 && (
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-wildfire-blue/10 via-slate-900/80 to-slate-900 border border-wildfire-blue/30 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-wildfire-blue/20 border border-wildfire-blue/40 flex items-center justify-center text-wildfire-blue flex-shrink-0">
+              <UserPlus className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Welcome to Student Analytics</h3>
+              <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                Your database is ready. Register student records to activate real-time predictive risk modeling, correlation charts, and intervention tracking.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsAddStudentOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-wildfire-blue text-slate-950 font-semibold text-xs hover:bg-cyan-300 transition-all flex items-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(0,229,255,0.3)] flex-shrink-0"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Add Your First Student</span>
+          </button>
+        </div>
+      )}
+
+      {isAddStudentOpen && (
+        <StudentModal isOpen={isAddStudentOpen} onClose={() => setIsAddStudentOpen(false)} />
+      )}
 
       {/* KPI Cards Grid (7 Dynamic KPIs) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">

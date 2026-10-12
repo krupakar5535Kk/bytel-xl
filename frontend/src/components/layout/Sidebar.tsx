@@ -12,15 +12,23 @@ import {
   FileText, 
   Settings, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  LogOut,
+  Compass,
+  CreditCard,
+  Award
 } from 'lucide-react';
 import { WildfireLogo } from './WildfireLogo';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 
 export type NavTab = 
   | 'dashboard'
   | 'students'
   | 'profile'
+  | 'talent'
+  | 'fees'
+  | 'studentPortal'
   | 'academic'
   | 'attendance'
   | 'risk'
@@ -44,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapsed,
 }) => {
   const { summary } = useApp();
+  const { logout } = useAuth();
 
   const navItems = [
     { id: 'dashboard' as NavTab, label: 'Overview Dashboard', icon: LayoutDashboard },
@@ -54,6 +63,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: summary.totalStudents > 0 ? summary.totalStudents.toString() : undefined,
     },
     { id: 'profile' as NavTab, label: 'Student Profile', icon: UserCheck },
+    { 
+      id: 'talent' as NavTab, 
+      label: 'Talent Radar', 
+      icon: Compass,
+      badge: 'NEW',
+      badgeColor: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40',
+    },
+    { id: 'fees' as NavTab, label: 'Fee Management', icon: CreditCard },
+    { id: 'studentPortal' as NavTab, label: 'Student Success Center', icon: Award },
     { id: 'academic' as NavTab, label: 'Academic Analytics', icon: GraduationCap },
     { id: 'attendance' as NavTab, label: 'Attendance Analytics', icon: CalendarCheck },
     { 
@@ -149,8 +167,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* Collapse Toggle Footer */}
-      <div className="p-3 border-t border-slate-800/60 flex items-center justify-between">
+      {/* Footer Controls: Logout & Collapse */}
+      <div className="p-3 border-t border-slate-800/60 space-y-2">
+        <button
+          onClick={logout}
+          title="Sign Out of Wild Fire"
+          className={`w-full flex items-center ${
+            collapsed ? 'justify-center' : 'justify-start px-3'
+          } gap-2.5 py-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-950/25 border border-transparent hover:border-red-500/30 transition-all text-xs font-medium cursor-pointer group`}
+        >
+          <LogOut className="w-4 h-4 text-slate-400 group-hover:text-red-400 group-hover:-translate-x-0.5 transition-all" />
+          {!collapsed && <span>Sign Out</span>}
+        </button>
+
         <button
           onClick={onToggleCollapsed}
           className="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors text-xs font-mono"

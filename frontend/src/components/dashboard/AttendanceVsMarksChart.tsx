@@ -21,6 +21,26 @@ export const AttendanceVsMarksChart: React.FC = () => {
     return '#10b981';
   };
 
+  // Calculate actual Pearson r correlation if at least 2 students exist
+  let pearsonRText = 'Insufficient Data (N < 2)';
+  if (students.length >= 2) {
+    const n = students.length;
+    const x = students.map((s) => s.attendanceRate);
+    const y = students.map((s) => s.averageScore);
+    const meanX = x.reduce((a, b) => a + b, 0) / n;
+    const meanY = y.reduce((a, b) => a + b, 0) / n;
+    const num = x.reduce((sum, xi, i) => sum + (xi - meanX) * (y[i] - meanY), 0);
+    const denX = Math.sqrt(x.reduce((sum, xi) => sum + Math.pow(xi - meanX, 2), 0));
+    const denY = Math.sqrt(y.reduce((sum, yi) => sum + Math.pow(yi - meanY, 2), 0));
+    if (denX > 0 && denY > 0) {
+      const r = Math.round((num / (denX * denY)) * 100) / 100;
+      const strength = Math.abs(r) >= 0.7 ? 'Strong' : Math.abs(r) >= 0.4 ? 'Moderate' : 'Weak';
+      pearsonRText = `${r >= 0 ? '+' : ''}${r.toFixed(2)} (${strength})`;
+    } else {
+      pearsonRText = '0.00 (Zero Variance)';
+    }
+  }
+
   return (
     <GlassCard className="p-5 flex flex-col h-[340px]">
       <div className="flex items-center justify-between mb-4">
@@ -30,62 +50,73 @@ export const AttendanceVsMarksChart: React.FC = () => {
           </div>
           <div>
             <h4 className="text-sm font-bold text-white">Attendance vs Academic Performance</h4>
-            <p className="text-[11px] text-slate-400">Correlation between class adherence and marks</p>
+            <p className="text-[11px] text-slate-400">Statistical correlation calculated from registered records</p>
           </div>
         </div>
 
         <div className="text-[11px] font-mono text-slate-400">
-          Pearson r: <span className="text-wildfire-blue font-bold">+0.84 (Strong)</span>
+          Pearson r: <span className="text-wildfire-blue font-bold">{pearsonRText}</span>
         </div>
       </div>
 
-      <div className="flex-1 w-full min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-            <XAxis
-              type="number"
-              dataKey="attendance"
-              name="Attendance Rate"
-              unit="%"
-              domain={[50, 100]}
-              stroke="#64748b"
-              fontSize={11}
-              tickLine={false}
-            />
-            <YAxis
-              type="number"
-              dataKey="score"
-              name="Academic Average"
-              unit="%"
-              domain={[30, 100]}
-              stroke="#64748b"
-              fontSize={11}
-              tickLine={false}
-            />
-            <Tooltip
-              cursor={{ strokeDasharray: '3 3' }}
-              content={({ payload }) => {
-                if (!payload || !payload[0]) return null;
-                const d = payload[0].payload;
-                return (
-                  <div className="bg-wildfire-card border border-slate-700 p-3 rounded-xl shadow-xl text-xs">
-                    <p className="font-bold text-white">{d.name} ({d.id})</p>
-                    <p className="text-slate-300 mt-1">Attendance: <span className="font-mono text-wildfire-cyan">{d.attendance}%</span></p>
-                    <p className="text-slate-300">Average Score: <span className="font-mono text-wildfire-blue">{d.score}%</span></p>
-                    <p className="text-slate-400 mt-1 capitalize text-[10px]">Risk: {d.riskLevel}</p>
-                  </div>
-                );
-              }}
-            />
-            <Scatter name="Students" data={data}>
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={getColor(entry.riskLevel)} />
-              ))}
-            </Scatter>
-          </ScatterChart>
-        </ResponsiveContainer>
-      </div>
+      {data.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-slate-400 text-xs">
+          <TrendingUp className="w-8 h-8 text-slate-600 mb-2" />
+          <p className="font-semibold text-slate-300">No correlation data recorded</p>
+          <span className="text-[11px] text-slate-500 mt-1 max-w-xs">
+            Attendance versus academic marks scatter plot will populate automatically as student records are added.
+          </span>
+        </div>
+      ) : (
+        <div className="flex-1 w-full min-h-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis
+                type="number"
+                dataKey="attendance"
+                name="Attendance Rate"
+                unit="%"
+                domain={[0, 100]}
+                stroke="#64748b"
+                fontSize={11}
+                tickLine={false}
+              />
+              <YAxis
+                type="number"
+                dataKey="score"
+                name="Academic Average"
+                unit="%"
+                domain={[0, 100]}
+                stroke="#64748b"
+                fontSize={11}
+                tickLine={false}
+              />
+              <Tooltip
+                cursor={{ strokeDasharray: '3 3' }}
+                contentStyle={{
+                  backgroundColor: '#0a1224',
+                  borderColor: '#1e293b',
+                  borderRadius: '0.75rem',
+                  color: '#fff',
+                  fontSize: '12px',
+                }}
+                formatter={(value: any, name: string) => [`${value}%`, name]}
+              />
+              <Scatter name="Students" data={data}>
+                {data.map((entry, index) => (
+                  <Cell
+                    key={`scatter-${index}`}
+                    fill={getColor(entry.riskLevel)}
+                    stroke="#030712"
+                    strokeWidth={1.5}
+                  />
+                ))}
+              </Scatter>
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </GlassCard>
   );
 };

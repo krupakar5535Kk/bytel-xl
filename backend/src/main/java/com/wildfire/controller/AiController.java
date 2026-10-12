@@ -44,4 +44,19 @@ public class AiController {
         AIInsightResponse response = openAiService.generateStudentInsights(s, assessments);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/tutor-chat")
+    public ResponseEntity<com.wildfire.dto.AITutorChatResponse> tutorChat(@Valid @RequestBody com.wildfire.dto.AITutorChatRequest req) {
+        StudentEntity s = null;
+        List<AssessmentEntity> assessments = null;
+        if (req.getStudentId() != null && !req.getStudentId().trim().isEmpty()) {
+            s = studentRepo.findById(req.getStudentId()).orElse(null);
+            if (s != null) {
+                assessments = assessmentRepo.findByStudentId(req.getStudentId());
+            }
+        }
+
+        com.wildfire.dto.AITutorChatResponse response = openAiService.generateTutorResponse(s, assessments, req.getMessage(), req.getHistory());
+        return ResponseEntity.ok(response);
+    }
 }

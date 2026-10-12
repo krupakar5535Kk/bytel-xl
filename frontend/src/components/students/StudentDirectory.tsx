@@ -34,6 +34,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onSelectStud
   const { students, deleteStudent, selectedCourseFilter } = useApp();
 
   const [search, setSearch] = useState('');
+  const [yearFilter, setYearFilter] = useState<'all' | '1' | '2' | '3' | '4'>('all');
   const [riskFilter, setRiskFilter] = useState<'all' | RiskLevel>('all');
   const [trendFilter, setTrendFilter] = useState<'all' | PerformanceTrend>('all');
   const [courseFilter, setCourseFilter] = useState<string>('all');
@@ -55,12 +56,14 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onSelectStud
       s.id.toLowerCase().includes(search.toLowerCase()) ||
       s.advisor.toLowerCase().includes(search.toLowerCase());
 
+    const studentYear = s.year || Math.ceil((s.semester || 1) / 2);
+    const matchesYear = yearFilter === 'all' || studentYear.toString() === yearFilter;
     const matchesRisk = riskFilter === 'all' || s.riskLevel === riskFilter;
     const matchesTrend = trendFilter === 'all' || s.trend === trendFilter;
     const effectiveCourseFilter = courseFilter !== 'all' ? courseFilter : selectedCourseFilter;
     const matchesCourse = effectiveCourseFilter === 'all' || s.course === effectiveCourseFilter;
 
-    return matchesSearch && matchesRisk && matchesTrend && matchesCourse;
+    return matchesSearch && matchesYear && matchesRisk && matchesTrend && matchesCourse;
   });
 
   // Apply sorting
@@ -196,6 +199,25 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onSelectStud
             </select>
           </div>
 
+          {/* Academic Year Filter */}
+          <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-xl px-2.5 py-1.5">
+            <span className="text-slate-400 font-mono text-[11px]">Year:</span>
+            <select
+              value={yearFilter}
+              onChange={(e) => {
+                setYearFilter(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent text-slate-200 focus:outline-none cursor-pointer text-xs"
+            >
+              <option value="all" className="bg-slate-900">All Years (1-4)</option>
+              <option value="1" className="bg-slate-900 text-wildfire-cyan">1st Year (Sem 1-2)</option>
+              <option value="2" className="bg-slate-900 text-wildfire-blue">2nd Year (Sem 3-4)</option>
+              <option value="3" className="bg-slate-900 text-purple-400">3rd Year (Sem 5-6)</option>
+              <option value="4" className="bg-slate-900 text-amber-400">4th Year (Sem 7-8)</option>
+            </select>
+          </div>
+
           {/* Course Filter */}
           <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-xl px-2.5 py-1.5">
             <span className="text-slate-400 font-mono text-[11px]">Course:</span>
@@ -259,10 +281,24 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onSelectStud
                   <td colSpan={9} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-600" />
-                      <span className="font-semibold text-slate-300">No matching student records found</span>
-                      <span className="text-[11px] text-slate-500">
-                        Adjust search filters or click "Register Student" to add a new record.
+                      <span className="font-semibold text-slate-300">
+                        {students.length === 0 ? 'No Student Records in Database' : 'No matching student records found'}
                       </span>
+                      {students.length === 0 ? (
+                        <div className="mt-3 flex items-center justify-center">
+                          <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="px-4 py-2 rounded-xl bg-wildfire-blue/20 text-wildfire-cyan border border-wildfire-blue/40 text-xs font-semibold hover:bg-wildfire-blue/30 transition-all cursor-pointer flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,229,255,0.2)]"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Add Your First Student</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-500">
+                          Adjust search filters or click "Register Student" to add a new record.
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -291,7 +327,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({ onSelectStud
                     </td>
                     <td className="py-3.5 px-4 text-slate-300">
                       <div>{s.course}</div>
-                      <div className="text-[10px] font-mono text-slate-400">Semester {s.semester}</div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        Year {s.year || Math.ceil((s.semester || 1) / 2)} • Sem {s.semester}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono">
                       <span className={s.attendanceRate < 75 ? 'text-red-400 font-bold' : 'text-slate-200'}>

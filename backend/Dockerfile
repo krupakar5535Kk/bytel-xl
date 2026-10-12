@@ -12,4 +12,4 @@ COPY --from=build /app/target/wildfire-backend-1.0.0.jar app.jar
 ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Dserver.port=${PORT:-8080} -jar app.jar"]

@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Student, Intervention, RiskRuleWeights, DashboardSummary } from '../types';
 import { wildfireApi } from '../services/api';
+import { supabaseService } from '../services/supabaseService';
 import { DEFAULT_RISK_WEIGHTS, calculateStudentRisk } from '../utils/riskEngine';
+import { useAuth } from './AuthContext';
 
 interface ToastMessage {
   id: string;
@@ -41,6 +43,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+
   const [students, setStudents] = useState<Student[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [isLiveMode, setIsLiveModeState] = useState<boolean>(false);
@@ -65,7 +69,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Check backend health periodically
+  // Check backend service status periodically
   const checkHealth = async () => {
     try {
       await wildfireApi.checkBackendHealth();
@@ -75,30 +79,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const loadData = async (live: boolean) => {
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setStudents([]);
+      setInterventions([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
+
     try {
-      const [stu, ints] = await Promise.all([
-        wildfireApi.getStudents(live),
-        wildfireApi.getInterventions(live),
-      ]);
-      setStudents(stu);
-      setInterventions(ints);
+      // Authenticated with Supabase: Load ONLY real students for this user from database
+      const dbStudents = await supabaseService.getStudents(user.id);
+      setStudents(dbStudents);
+      setInterventions([]);
     } catch (err: any) {
-      setError(err.message || 'Failed to load platform data');
-      showToast('error', 'Data Retrieval Failed', err.message || 'Could not connect to service');
+      console.error('[AppContext] Failed to load data from database:', err);
+      setError(err.message || 'Failed to load student data from database.');
+      showToast('error', 'Database Retrieval Error', err.message || 'Could not query student records.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     checkHealth();
-    loadData(isLiveMode);
+    loadData();
     const interval = setInterval(checkHealth, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadData]);
 
   const setLiveMode = async (live: boolean) => {
     setIsLiveModeState(live);
@@ -109,22 +120,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         showToast('info', 'Live Mode Enabled', 'Connected to Spring Boot REST backend.');
       } catch {
         setBackendStatus('disconnected');
-        showToast('warning', 'Live Mode Notice', 'Backend server not responding at configured URL. Displaying server errors.');
+        showToast('warning', 'Live Mode Notice', 'Spring Boot backend server offline. Operations will proceed via direct database.');
       }
     } else {
-      showToast('info', 'Demo Mode Active', 'Displaying internally consistent demonstration cohort.');
+      showToast('info', 'Database Mode Active', 'Displaying real student records from database.');
     }
-    await loadData(live);
+    await loadData();
   };
 
   const refreshData = async () => {
     await checkHealth();
-    await loadData(isLiveMode);
+    await loadData();
+    showToast('info', 'Data Synchronized', 'Dashboard analytics refreshed from database.');
   };
 
   const updateRiskWeights = (newWeights: RiskRuleWeights) => {
     setRiskWeights(newWeights);
-    // Recalculate risk scores for all students in-memory
+    // Recalculate risk scores for all real students
     setStudents((prev) =>
       prev.map((s) => {
         const risk = calculateStudentRisk(s as any, undefined, undefined, newWeights);
@@ -139,10 +151,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addStudent = async (studentData: Omit<Student, 'riskScore' | 'riskLevel' | 'lastUpdated'>): Promise<Student> => {
+    if (!user) {
+      throw new Error('You must be signed in to add students.');
+    }
+
     try {
-      const created = await wildfireApi.createStudent(studentData, isLiveMode);
+      // Persist directly into Supabase table with user_id
+      const created = await supabaseService.createStudent(user.id, studentData);
       setStudents((prev) => [created, ...prev]);
-      showToast('success', 'Student Created', `Successfully registered ${created.name} (${created.id})`);
+      showToast('success', 'Student Registered', `Successfully added ${created.name} (${created.id})`);
       return created;
     } catch (err: any) {
       showToast('error', 'Registration Failed', err.message);
@@ -151,8 +168,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateStudent = async (id: string, updates: Partial<Student>): Promise<Student> => {
+    if (!user) {
+      throw new Error('You must be signed in to modify students.');
+    }
+
     try {
-      const updated = await wildfireApi.updateStudent(id, updates, isLiveMode);
+      const updated = await supabaseService.updateStudent(id, updates);
       setStudents((prev) => prev.map((s) => (s.id === id ? updated : s)));
       showToast('success', 'Record Updated', `Saved changes for ${updated.name}`);
       return updated;
@@ -163,10 +184,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteStudent = async (id: string): Promise<void> => {
+    if (!user) {
+      throw new Error('You must be signed in to delete students.');
+    }
+
     try {
-      await wildfireApi.deleteStudent(id, isLiveMode);
+      await supabaseService.deleteStudent(id);
       setStudents((prev) => prev.filter((s) => s.id !== id));
-      showToast('info', 'Record Removed', `Student ${id} was deleted from database`);
+      showToast('info', 'Record Removed', 'Student was permanently deleted from database.');
     } catch (err: any) {
       showToast('error', 'Delete Failed', err.message);
       throw err;
@@ -197,7 +222,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Calculate dynamic dashboard summary metrics from underlying records
+  // Calculate dynamic dashboard summary metrics strictly from real stored student records
   const totalStudents = students.length;
   const highRiskCount = students.filter((s) => s.riskLevel === 'high').length;
   const moderateRiskCount = students.filter((s) => s.riskLevel === 'moderate').length;
