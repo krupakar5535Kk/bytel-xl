@@ -422,7 +422,7 @@ export const StudentPortfolioEditor: React.FC<StudentPortfolioEditorProps> = ({ 
   return (
     <div className="space-y-6">
       {/* Hero Header Card */}
-      <GlassCard glow="cyan" className="p-6 md:p-8 relative overflow-hidden">
+      <GlassCard glow="blue" className="p-6 md:p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">

@@ -16,6 +16,7 @@ export const AIImprovementPlanCard: React.FC<AIImprovementPlanCardProps> = ({
   isLoading = false,
   onRequestGenerate,
   onApproveAndSave,
+  onOpenInAITutor,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);

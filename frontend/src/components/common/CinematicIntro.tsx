@@ -195,7 +195,7 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ onComplete }) =>
             {/* Brand Reveal (Phase 1.8s - 2.6s) */}
             <motion.div
               initial={{ opacity: 0, y: 14 }}
-              animate={phase === 'brand' || phase === 'exit' ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+              animate={phase === 'brand' ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="mt-6 text-center space-y-1.5"
             >
