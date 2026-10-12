@@ -1,11 +1,14 @@
-# WILD FIRE — AI-Powered Student Analytics & Success Platform
-### Hackathon Challenge 04 — Master Product Architecture & Documentation
+# Student Analytics — AI Student Success, Academic Intelligence & Talent Discovery Platform
 
-[![Frontend Status](https://img.shields.io/badge/Frontend-React_18_%7C_TypeScript_%7C_Tailwind-00e5ff?style=flat-square)](./frontend)
-[![Backend Status](https://img.shields.io/badge/Backend-Spring_Boot_3.3_%7C_Java_21-8b5cf6?style=flat-square)](./backend)
-[![Database](https://img.shields.io/badge/Database-PostgreSQL_%2F_H2-38bdf8?style=flat-square)](./backend)
-[![AI Integration](https://img.shields.io/badge/AI-OpenAI_GPT--4o_Mini-a855f7?style=flat-square)](./backend)
-[![License](https://img.shields.io/badge/License-MIT-emerald?style=flat-square)](LICENSE)
+[![Live Application](https://img.shields.io/badge/Live_App-student--analytics--website.vercel.app-00e5ff?style=for-the-badge&logo=vercel)](https://student-analytics-website.vercel.app)
+[![API Status](https://img.shields.io/badge/Backend_API-Render_Live_UP-8b5cf6?style=for-the-badge&logo=render)](https://student-analytics-t77k.onrender.com/api/v1/health)
+[![Database](https://img.shields.io/badge/Database-Supabase_PostgreSQL-38bdf8?style=for-the-badge&logo=supabase)](https://supabase.com)
+[![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
+
+> 🚀 **Public Live Showcase Links**:
+> - **Live Web Platform**: [https://student-analytics-website.vercel.app](https://student-analytics-website.vercel.app)
+> - **Production Backend API**: [https://student-analytics-t77k.onrender.com/api/v1/health](https://student-analytics-t77k.onrender.com/api/v1/health)
+> - **Source Code Repository**: [https://github.com/krupakar5535Kk/bytel-xl](https://github.com/krupakar5535Kk/bytel-xl)
 
 ---
 
